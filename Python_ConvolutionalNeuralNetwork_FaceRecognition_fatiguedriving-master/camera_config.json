@@ -1,0 +1,35 @@
+{
+    "camera": {
+        "width": 640,
+        "height": 480,
+        "fps": 15,
+        "buffer_size": 1,
+        "brightness": 150,
+        "contrast": 140,
+        "saturation": 110,
+        "gain": 50,
+        "auto_exposure": 0.75,
+        "exposure": -4,
+        "wb_temperature": 4000
+    },
+    "enhancement": {
+        "dark_threshold": 120,
+        "brightness_alpha": 1.6,
+        "brightness_beta": 40,
+        "clahe_clip_limit": 4.0,
+        "clahe_tile_size": [
+            8,
+            8
+        ],
+        "gamma_correction": 0.7,
+        "enhancement_weight": 0.8
+    },
+    "performance": {
+        "frame_skip_detection": 5,
+        "frame_skip_display": 3,
+        "main_loop_delay": 0.033,
+        "error_report_interval": 30,
+        "status_report_interval": 10.0,
+        "max_error_count": 100
+    }
+}
