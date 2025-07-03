@@ -14,7 +14,8 @@ class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(1000, 750)
+        Form.resize(1400, 900)  # 进一步增加默认窗口大小以容纳更大的视频区域
+        Form.setMinimumSize(1200, 800)  # 增加最小窗口大小
 
         # 应用现代化样式
         Form.setStyleSheet(self.get_modern_style())
@@ -30,9 +31,16 @@ class Ui_Form(object):
 
         # 左侧：视频和统计区域
         left_layout = QVBoxLayout()
+        left_layout.setSpacing(15)
         self.create_video_section(left_layout)
         self.create_stats_section(left_layout)
-        content_layout.addLayout(left_layout, 2)
+
+        # 创建左侧容器并设置拉伸策略
+        left_widget = QFrame()
+        left_widget.setLayout(left_layout)
+        from PySide6.QtWidgets import QSizePolicy
+        left_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        content_layout.addWidget(left_widget, 3)  # 增加拉伸因子
 
         # 右侧：控制面板
         self.create_control_panel(content_layout)
@@ -151,10 +159,14 @@ class Ui_Form(object):
         """创建视频显示区域"""
         video_frame = QFrame()
         video_frame.setProperty("class", "card")
-        video_frame.setMinimumSize(500, 400)
+        # 增加视频区域的最小尺寸，确保有足够空间显示完整人脸
+        video_frame.setMinimumSize(700, 550)  # 增加尺寸
         video_layout = QVBoxLayout(video_frame)
+        video_layout.setSpacing(10)
+        video_layout.setContentsMargins(15, 15, 15, 15)
 
         video_title = QLabel("📹 实时视频监控")
+        video_title.setFixedHeight(40)  # 固定标题高度
         video_title.setStyleSheet("""
             QLabel {
                 font-size: 16px;
@@ -163,7 +175,7 @@ class Ui_Form(object):
                 padding: 10px;
                 background: #f8f9fa;
                 border-radius: 8px;
-                margin-bottom: 10px;
+                margin-bottom: 5px;
             }
         """)
         video_layout.addWidget(video_title)
@@ -172,8 +184,13 @@ class Ui_Form(object):
         self.label_img = QLabel("等待视频流...")
         self.label_img.setObjectName("label_img")
         self.label_img.setAlignment(Qt.AlignCenter)
-        # 启用缩放内容以确保图像能正确显示
-        self.label_img.setScaledContents(True)
+        # 启用缩放内容以确保图像能正确显示并保持宽高比
+        self.label_img.setScaledContents(True)  # 改为True以确保图像能够缩放显示
+        # 增加最小尺寸，确保有足够空间显示完整人脸
+        self.label_img.setMinimumSize(640, 480)  # 增加最小尺寸
+        # 设置大小策略，允许扩展
+        from PySide6.QtWidgets import QSizePolicy
+        self.label_img.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.label_img.setStyleSheet("""
             QLabel {
                 background: #f0f0f0;
@@ -181,19 +198,25 @@ class Ui_Form(object):
                 border-radius: 10px;
                 font-size: 14px;
                 color: #666;
-                min-height: 320px;
-                min-width: 480px;
             }
         """)
-        video_layout.addWidget(self.label_img)
+        video_layout.addWidget(self.label_img, 1)  # 添加拉伸因子
         layout.addWidget(video_frame)
 
     def create_stats_section(self, layout):
         """创建统计显示区域"""
         self.groupBox_5 = QGroupBox("📊 实时统计")
         self.groupBox_5.setObjectName(u"groupBox_5")
+        # 设置固定高度，防止在窗口放大时过度拉伸
+        self.groupBox_5.setMaximumHeight(220)
+        self.groupBox_5.setMinimumHeight(200)
+
         stats_layout = QGridLayout(self.groupBox_5)
-        stats_layout.setSpacing(15)
+        stats_layout.setSpacing(8)
+        stats_layout.setContentsMargins(15, 25, 15, 15)
+        # 设置行间距
+        stats_layout.setVerticalSpacing(5)
+        stats_layout.setHorizontalSpacing(12)
 
         # 创建统计标签
         stats_data = [
@@ -211,25 +234,55 @@ class Ui_Form(object):
         for title, obj_name, default_val, row, col in stats_data:
             # 标题标签
             title_label = QLabel(title)
-            title_label.setStyleSheet("font-weight: bold; color: #666; font-size: 10pt;")
+            title_label.setStyleSheet("""
+                QLabel {
+                    font-weight: bold;
+                    color: #666;
+                    font-size: 9pt;
+                    margin-bottom: 3px;
+                    padding: 2px;
+                }
+            """)
+            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setMinimumHeight(20)
+            title_label.setMaximumHeight(25)
+            title_label.setWordWrap(True)  # 允许文字换行
             stats_layout.addWidget(title_label, row * 2, col)
 
             # 数值标签
             value_label = QLabel(default_val)
             value_label.setObjectName(obj_name)
             value_label.setAlignment(Qt.AlignCenter)
+            value_label.setMinimumHeight(30)
+            value_label.setMaximumHeight(40)
+            value_label.setMinimumWidth(80)
             value_label.setStyleSheet("""
                 QLabel {
                     background: #f8f9fa;
                     border: 1px solid #dee2e6;
                     border-radius: 5px;
-                    padding: 5px;
+                    padding: 6px 8px;
                     font-weight: bold;
                     color: #495057;
+                    font-size: 12pt;
                 }
             """)
+            value_label.setWordWrap(True)  # 允许文字换行
             stats_layout.addWidget(value_label, row * 2 + 1, col)
             setattr(self, obj_name, value_label)
+
+        # 设置列的拉伸策略，使其均匀分布
+        for col in range(3):
+            stats_layout.setColumnStretch(col, 1)
+            stats_layout.setColumnMinimumWidth(col, 100)  # 设置最小列宽
+
+        # 设置行的拉伸策略和最小高度
+        for row in range(6):  # 3行 * 2 (标题+数值) = 6行
+            stats_layout.setRowStretch(row, 0)
+            if row % 2 == 0:  # 标题行
+                stats_layout.setRowMinimumHeight(row, 25)
+            else:  # 数值行
+                stats_layout.setRowMinimumHeight(row, 40)
 
         layout.addWidget(self.groupBox_5)
 
@@ -238,8 +291,14 @@ class Ui_Form(object):
         self.groupBox_2 = QGroupBox("🎛️ 控制面板")
         self.groupBox_2.setObjectName(u"groupBox_2")
         self.groupBox_2.setMinimumWidth(320)
+        self.groupBox_2.setMaximumWidth(400)  # 设置最大宽度，防止过度拉伸
+        # 设置大小策略，固定宽度
+        from PySide6.QtWidgets import QSizePolicy
+        self.groupBox_2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
         self.gridLayout_2 = QGridLayout(self.groupBox_2)
         self.gridLayout_2.setSpacing(15)
+        self.gridLayout_2.setContentsMargins(20, 25, 20, 20)
 
         # 主控制按钮（切换式：开始检测/停止检测）
         self.pushButton = QPushButton("🚀 开始检测")
@@ -306,12 +365,18 @@ class Ui_Form(object):
         self.groupBox_4 = QGroupBox("📝 系统日志")
         self.groupBox_4.setObjectName(u"groupBox_4")
         self.groupBox_4.setMaximumHeight(150)
+        self.groupBox_4.setMinimumHeight(120)
+        # 设置大小策略，固定高度
+        from PySide6.QtWidgets import QSizePolicy
+        self.groupBox_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         bottom_layout = QVBoxLayout(self.groupBox_4)
+        bottom_layout.setContentsMargins(15, 20, 15, 15)
 
         self.plainTextEdit_tip = QPlainTextEdit()
         self.plainTextEdit_tip.setObjectName(u"plainTextEdit_tip")
-        self.plainTextEdit_tip.setMaximumHeight(120)
+        self.plainTextEdit_tip.setMaximumHeight(100)
+        self.plainTextEdit_tip.setMinimumHeight(80)
         self.plainTextEdit_tip.setPlainText("系统就绪，等待开始检测...")
 
         bottom_layout.addWidget(self.plainTextEdit_tip)
