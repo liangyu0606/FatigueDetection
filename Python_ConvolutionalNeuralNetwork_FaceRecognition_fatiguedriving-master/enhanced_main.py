@@ -23,49 +23,15 @@ from PySide6.QtGui import QFont, QIcon, QAction
 from user_management import UserManager, UserRole, Permission
 from system_logger import SystemLogger, LogLevel, LogCategory
 from user_interface import LoginDialog, UserManagementWidget
-
-# 尝试导入日志查看器，如果失败则使用占位符
-try:
-    from log_viewer import LogViewerWidget
-    LOG_VIEWER_AVAILABLE = True
-except Exception as e:  # 捕获所有异常，不仅仅是ImportError
-    print(f"日志查看器导入失败: {e}")
-    LOG_VIEWER_AVAILABLE = False
-    # 创建占位符类
-    class LogViewerWidget:
-        def __init__(self, *args, **kwargs):
-            pass
-
-# 尝试导入PyTorch用于CNN+LSTM打哈欠检测
-try:
-    import torch
-    import torch.nn as nn
-    import numpy as np
-    PYTORCH_AVAILABLE = True
-    print("✅ PyTorch可用，将启用CNN+LSTM打哈欠检测")
-except ImportError as e:
-    print(f"PyTorch导入失败: {e}")
-    PYTORCH_AVAILABLE = False
+from log_viewer import LogViewerWidget
 
 # 导入原有的疲劳检测模块
 try:
-    from main import MainUI, YawnCNNLSTM, YawnDetector
+    from main import MainUI
     MAIN_UI_AVAILABLE = True
-    # 如果main.py中有CNN+LSTM相关类，也导入
-    if PYTORCH_AVAILABLE:
-        print("✅ 成功导入CNN+LSTM相关类")
 except ImportError:
     MAIN_UI_AVAILABLE = False
     print("警告: 无法导入原有的主界面模块")
-    # 如果无法从main导入，定义占位符类
-    if not PYTORCH_AVAILABLE:
-        class YawnCNNLSTM:
-            def __init__(self, *args, **kwargs):
-                pass
-
-        class YawnDetector:
-            def __init__(self, *args, **kwargs):
-                self.is_available = False
 
 from fatigue_statistics import FatigueStatistics
 
@@ -91,11 +57,7 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
         
         # 原有的疲劳检测界面
         self.fatigue_ui = None
-
-        # 初始化CNN+LSTM打哈欠检测器
-        self.yawn_detector = None
-        self.init_yawn_detector()
-
+        
         # 界面组件
         self.central_widget = None
         self.tab_widget = None
@@ -166,7 +128,8 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
         """设置主窗口"""
         self.setWindowTitle("🚗 智能疲劳驾驶检测系统 - 企业版")
         self.setGeometry(100, 100, 1400, 900)
-        
+        self.setMinimumSize(1200, 800)  # 设置最小窗口大小
+
         # 设置窗口图标（如果有的话）
         # self.setWindowIcon(QIcon("icon.png"))
         
@@ -223,14 +186,6 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
         self.log_viewer_action.triggered.connect(self.show_log_viewer)
         self.log_viewer_action.setEnabled(False)
         self.system_menu.addAction(self.log_viewer_action)
-
-        # 分隔符
-        self.system_menu.addSeparator()
-
-        # CNN+LSTM状态
-        self.cnn_lstm_status_action = QAction("CNN+LSTM状态(&C)", self)
-        self.cnn_lstm_status_action.triggered.connect(self.show_cnn_lstm_status)
-        self.system_menu.addAction(self.cnn_lstm_status_action)
         
         # 帮助菜单
         help_menu = menubar.addMenu("帮助(&H)")
@@ -262,94 +217,6 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
         """更新时间显示"""
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.time_label.setText(current_time)
-
-    def init_yawn_detector(self):
-        """初始化CNN+LSTM打哈欠检测器"""
-        try:
-            if not PYTORCH_AVAILABLE:
-                print("⚠️ PyTorch不可用，跳过CNN+LSTM打哈欠检测器初始化")
-                return
-
-            # 检查是否有训练好的模型 - 现在模型文件在model文件夹中
-            model_path = './model/best_fatigue_model.pth'
-            if not os.path.exists(model_path):
-                # 尝试其他可能的路径
-                model_path = '../real_pljc/models/best_fatigue_model.pth'
-            if not os.path.exists(model_path):
-                # 尝试相对路径
-                model_path = './real_pljc/models/best_fatigue_model.pth'
-            if not os.path.exists(model_path):
-                # 尝试绝对路径
-                model_path = 'D:/code/PythonProject2/real_pljc/models/best_fatigue_model.pth'
-
-            if os.path.exists(model_path):
-                self.yawn_detector = YawnDetector(model_path)
-                if self.yawn_detector.is_available:
-                    print("✅ Enhanced版本: CNN+LSTM打哈欠检测器已加载")
-                    # 记录到系统日志
-                    self.logger.log_system_event(
-                        "CNN+LSTM打哈欠检测器初始化成功",
-                        LogLevel.INFO,
-                        LogCategory.SYSTEM_EVENT,
-                        {"model_path": model_path}
-                    )
-                else:
-                    print("⚠️ Enhanced版本: CNN+LSTM打哈欠检测器加载失败")
-                    self.yawn_detector = None
-            else:
-                print("⚠️ Enhanced版本: 未找到CNN+LSTM打哈欠检测模型")
-                self.yawn_detector = None
-
-        except Exception as e:
-            print(f"Enhanced版本: CNN+LSTM打哈欠检测器初始化失败: {e}")
-            self.yawn_detector = None
-            # 记录错误到系统日志
-            self.logger.log_system_event(
-                f"CNN+LSTM打哈欠检测器初始化失败: {e}",
-                LogLevel.ERROR,
-                LogCategory.SYSTEM_EVENT
-            )
-
-    def get_cnn_lstm_status(self):
-        """获取CNN+LSTM检测器状态信息"""
-        status_info = {
-            "pytorch_available": PYTORCH_AVAILABLE,
-            "detector_available": self.yawn_detector is not None and self.yawn_detector.is_available,
-            "model_loaded": False,
-            "device": "未知",
-            "seq_length": 0,
-            "consecutive_frames": 0
-        }
-
-        if self.yawn_detector and self.yawn_detector.is_available:
-            status_info["model_loaded"] = True
-            status_info["device"] = str(self.yawn_detector.device) if hasattr(self.yawn_detector, 'device') else "未知"
-            status_info["seq_length"] = getattr(self.yawn_detector, 'seq_length', 0)
-            status_info["consecutive_frames"] = getattr(self.yawn_detector, 'consecutive_frames', 0)
-
-        return status_info
-
-    def show_cnn_lstm_status(self):
-        """显示CNN+LSTM检测器状态对话框"""
-        status = self.get_cnn_lstm_status()
-
-        status_text = "CNN+LSTM打哈欠检测器状态:\n\n"
-        status_text += f"PyTorch: {'✅ 可用' if status['pytorch_available'] else '❌ 不可用'}\n"
-        status_text += f"检测器: {'✅ 已加载' if status['detector_available'] else '❌ 未加载'}\n"
-        status_text += f"模型: {'✅ 已加载' if status['model_loaded'] else '❌ 未加载'}\n"
-
-        if status['detector_available']:
-            status_text += f"设备: {status['device']}\n"
-            status_text += f"序列长度: {status['seq_length']} 帧\n"
-            status_text += f"连续帧阈值: {status['consecutive_frames']} 帧\n"
-
-        status_text += "\n模型功能:\n"
-        status_text += "• 专门用于打哈欠检测\n"
-        status_text += "• 基于CNN+LSTM深度学习\n"
-        status_text += "• 需要连续帧验证\n"
-        status_text += "• 具有冷却机制防止重复计数\n"
-
-        QMessageBox.information(self, "CNN+LSTM状态", status_text)
     
     def show_login_dialog(self):
         """显示登录对话框"""
@@ -519,19 +386,6 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
                 # 创建原有的疲劳检测界面
                 self.fatigue_ui = MainUI()
 
-                # 将Enhanced版本的CNN+LSTM检测器传递给MainUI
-                if self.yawn_detector and self.yawn_detector.is_available:
-                    self.fatigue_ui.yawn_detector = self.yawn_detector
-                    print("✅ Enhanced版本: CNN+LSTM检测器已传递给MainUI")
-                    # 记录到系统日志
-                    self.logger.log_system_event(
-                        "CNN+LSTM检测器已集成到疲劳检测界面",
-                        LogLevel.INFO,
-                        LogCategory.SYSTEM_EVENT
-                    )
-                else:
-                    print("⚠️ Enhanced版本: CNN+LSTM检测器不可用")
-
                 # 连接疲劳检测和统计模块
                 self.connect_detection_to_stats()
 
@@ -543,14 +397,6 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
                 info_label = QLabel(f"当前用户: {self.current_user.username} | 检测权限: 已授权")
                 info_label.setStyleSheet("background-color: #e8f5e8; padding: 5px; border-radius: 3px;")
                 layout.addWidget(info_label)
-
-                # 添加CNN+LSTM检测器状态显示
-                cnn_lstm_status = "✅ 可用" if (self.yawn_detector and self.yawn_detector.is_available) else "❌ 不可用"
-                pytorch_status = "✅ 已安装" if PYTORCH_AVAILABLE else "❌ 未安装"
-                status_label = QLabel(f"CNN+LSTM打哈欠检测: {cnn_lstm_status} | PyTorch: {pytorch_status}")
-                status_color = "#e8f5e8" if (self.yawn_detector and self.yawn_detector.is_available) else "#ffe8e8"
-                status_label.setStyleSheet(f"background-color: {status_color}; padding: 5px; border-radius: 3px;")
-                layout.addWidget(status_label)
 
                 # 添加原有界面
                 layout.addWidget(self.fatigue_ui)
@@ -618,17 +464,10 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
     
     def create_log_viewer_tab(self):
         """创建日志查看选项卡"""
-        if not LOG_VIEWER_AVAILABLE:
-            error_widget = QLabel("日志查看器不可用\n可能是matplotlib兼容性问题\n\n基本功能仍然可用")
-            error_widget.setAlignment(Qt.AlignCenter)
-            error_widget.setStyleSheet("color: #666; font-size: 14px;")
-            self.tab_widget.addTab(error_widget, "❌ 系统日志")
-            return
-
         try:
             log_viewer_widget = LogViewerWidget(self.user_manager, self.logger)
             self.tab_widget.addTab(log_viewer_widget, "📋 系统日志")
-
+            
         except Exception as e:
             error_widget = QLabel(f"日志查看模块加载失败: {e}")
             error_widget.setAlignment(Qt.AlignCenter)
@@ -647,10 +486,6 @@ class EnhancedFatigueDetectionSystem(QMainWindow):
     
     def show_log_viewer(self):
         """显示日志查看器（菜单项）"""
-        if not LOG_VIEWER_AVAILABLE:
-            QMessageBox.warning(self, "功能不可用", "日志查看器不可用，可能是matplotlib兼容性问题")
-            return
-
         if self.user_manager.has_permission(Permission.LOG_MANAGE):
             # 切换到日志查看选项卡
             for i in range(self.tab_widget.count()):

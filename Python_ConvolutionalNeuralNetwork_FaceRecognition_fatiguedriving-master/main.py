@@ -411,10 +411,15 @@ class MainUI(QtWidgets.QWidget, main_ui.Ui_Form):
             from PySide6.QtWidgets import QLabel
             self.label_img = QLabel()
             self.label_img.setScaledContents(True)
+            # 设置最小尺寸确保有足够空间显示人脸
+            self.label_img.setMinimumSize(640, 480)
             # 如果有视频显示区域，可以将label_img添加到其中
             print("创建了默认的图片显示标签")
         else:
             self.label_img.setScaledContents(True)
+            # 确保现有的label_img也有合适的最小尺寸
+            if self.label_img.minimumSize().width() < 640:
+                self.label_img.setMinimumSize(640, 480)
 
         if hasattr(self, 'plainTextEdit_tip'):
             self.plainTextEdit_tip.appendPlainText('等待开始\n')
@@ -584,92 +589,6 @@ class MainUI(QtWidgets.QWidget, main_ui.Ui_Form):
         except Exception as e:
             print(f"摄像头参数设置失败: {e}")
             # 即使设置失败也继续，使用默认参数
-
-    def setup_camera_exposure_control(self, cap):
-        """设置摄像头曝光控制，解决过曝问题"""
-        if cap is None or not cap.isOpened():
-            return
-
-        print("🎥 正在调整摄像头曝光设置...")
-
-        try:
-            # 1. 禁用自动曝光
-            print("  - 禁用自动曝光")
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 0.25 = 手动模式，0.75 = 自动模式
-
-            # 2. 设置手动曝光值（负值减少曝光）
-            print("  - 设置手动曝光值")
-            cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # 范围通常是-13到-1，-6是中等偏暗
-
-            # 3. 调整亮度（如果曝光调整后太暗）
-            print("  - 调整亮度")
-            cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.4)  # 范围0-1，0.4是中等偏暗
-
-            # 4. 调整对比度
-            print("  - 调整对比度")
-            cap.set(cv2.CAP_PROP_CONTRAST, 0.6)  # 范围0-1，0.6是中等偏高
-
-            # 5. 调整饱和度
-            print("  - 调整饱和度")
-            cap.set(cv2.CAP_PROP_SATURATION, 0.5)  # 范围0-1，0.5是中等
-
-            # 6. 调整增益（如果支持）
-            print("  - 调整增益")
-            cap.set(cv2.CAP_PROP_GAIN, 0.3)  # 范围0-1，0.3是较低增益
-
-            # 7. 禁用自动白平衡（可选）
-            print("  - 设置白平衡")
-            cap.set(cv2.CAP_PROP_AUTO_WB, 0)  # 禁用自动白平衡
-            cap.set(cv2.CAP_PROP_WB_TEMPERATURE, 4000)  # 设置色温
-
-            # 验证设置
-            print("📊 当前摄像头参数:")
-            auto_exposure = cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)
-            exposure = cap.get(cv2.CAP_PROP_EXPOSURE)
-            brightness = cap.get(cv2.CAP_PROP_BRIGHTNESS)
-            contrast = cap.get(cv2.CAP_PROP_CONTRAST)
-            gain = cap.get(cv2.CAP_PROP_GAIN)
-
-            print(f"  自动曝光: {auto_exposure}")
-            print(f"  曝光值: {exposure}")
-            print(f"  亮度: {brightness}")
-            print(f"  对比度: {contrast}")
-            print(f"  增益: {gain}")
-
-            print("✅ 曝光控制设置完成")
-
-        except Exception as e:
-            print(f"❌ 曝光控制设置失败: {e}")
-            print("💡 提示: 某些摄像头可能不支持手动曝光控制")
-
-    def adjust_exposure_realtime(self, adjustment):
-        """实时调整曝光（可以绑定到键盘快捷键）"""
-        if self.cap is None or not self.cap.isOpened():
-            return
-
-        try:
-            current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
-            new_exposure = max(-13, min(-1, current_exposure + adjustment))
-            self.cap.set(cv2.CAP_PROP_EXPOSURE, new_exposure)
-            print(f"🎥 曝光调整: {current_exposure:.2f} → {new_exposure:.2f}")
-        except Exception as e:
-            print(f"实时曝光调整失败: {e}")
-
-    def reset_camera_settings(self):
-        """重置摄像头设置到默认值"""
-        if self.cap is None or not self.cap.isOpened():
-            return
-
-        try:
-            print("🔄 重置摄像头设置...")
-            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # 自动曝光
-            self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
-            self.cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
-            self.cap.set(cv2.CAP_PROP_SATURATION, 0.5)
-            self.cap.set(cv2.CAP_PROP_AUTO_WB, 1)  # 自动白平衡
-            print("✅ 摄像头设置已重置")
-        except Exception as e:
-            print(f"重置摄像头设置失败: {e}")
 
     def _enhance_dark_frame(self, frame):
         """增强暗图像 - 使用配置文件参数"""
@@ -863,9 +782,6 @@ class MainUI(QtWidgets.QWidget, main_ui.Ui_Form):
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-                # 重新设置曝光控制
-                self.setup_camera_exposure_control(self.cap)
 
                 # 测试读取
                 ret, test_frame = self.cap.read()
@@ -1365,9 +1281,6 @@ class MainUI(QtWidgets.QWidget, main_ui.Ui_Form):
                     self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                     self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                     self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-                    # 曝光和图像质量调整
-                    self.setup_camera_exposure_control(self.cap)
 
                     # 测试读取
                     ret, test_frame = self.cap.read()

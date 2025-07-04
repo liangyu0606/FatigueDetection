@@ -386,9 +386,9 @@ class LoginDialog(QDialog):
         button_container = QHBoxLayout()
         button_container.setSpacing(15)
 
-        self.cancel_button = QPushButton("取消")
-        self.cancel_button.clicked.connect(self.reject)
-        self.cancel_button.setStyleSheet("""
+        self.register_button = QPushButton("注册")
+        self.register_button.clicked.connect(self.register)
+        self.register_button.setStyleSheet("""
             QPushButton {
                 background: rgba(255, 255, 255, 0.2);
                 border: 2px solid rgba(255, 255, 255, 0.3);
@@ -428,7 +428,7 @@ class LoginDialog(QDialog):
             }
         """)
 
-        button_container.addWidget(self.cancel_button)
+        button_container.addWidget(self.register_button)
         button_container.addWidget(self.login_button)
         layout.addLayout(button_container)
 
@@ -496,6 +496,69 @@ class LoginDialog(QDialog):
             )
             
             QMessageBox.critical(self, "登录失败", message)
+
+    def register(self):
+        """执行注册"""
+        username = self.username_edit.text().strip()
+        password = self.password_edit.text()
+
+        if not username or not password:
+            QMessageBox.warning(self, "警告", "请输入用户名和密码")
+            return
+
+        # 检查用户名长度
+        if len(username) < 3:
+            QMessageBox.warning(self, "警告", "用户名至少需要3个字符")
+            return
+
+        # 检查密码长度
+        if len(password) < 6:
+            QMessageBox.warning(self, "警告", "密码至少需要6个字符")
+            return
+
+        # 检查用户名是否已存在
+        if self.user_manager.get_user_by_username(username):
+            QMessageBox.warning(self, "警告", f"用户名 '{username}' 已存在，请选择其他用户名")
+            return
+
+        # 注册新用户，角色固定为driver
+        success = self.user_manager.register_user(
+            username=username,
+            password=password,
+            role=UserRole.DRIVER,  # 固定为驾驶员角色
+            email="",  # 可以为空
+            full_name=""  # 可以为空
+        )
+
+        if success:
+            # 记录注册日志
+            self.logger.log_system_event(
+                action="user_register",
+                description=f"新用户注册成功: {username}",
+                level=LogLevel.INFO,
+                details={"username": username, "role": "driver"}
+            )
+
+            QMessageBox.information(
+                self, "注册成功",
+                f"用户 '{username}' 注册成功！\n"
+                f"您的角色是：驾驶员\n"
+                f"请使用新账户登录。"
+            )
+
+            # 清空密码框，保留用户名方便登录
+            self.password_edit.clear()
+            self.password_edit.setFocus()
+        else:
+            # 记录注册失败日志
+            self.logger.log_system_event(
+                action="user_register_failed",
+                description=f"用户注册失败: {username}",
+                level=LogLevel.WARNING,
+                details={"username": username, "reason": "registration_failed"}
+            )
+
+            QMessageBox.critical(self, "注册失败", "用户注册失败，请稍后重试")
 
 
 class UserManagementWidget(QWidget):
@@ -720,7 +783,20 @@ class UserManagementWidget(QWidget):
 
         # 设置表格属性
         header = self.user_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Stretch)
+        
+        # 设置列宽度策略
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # 用户名
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # 角色
+        header.setSectionResizeMode(2, QHeaderView.Stretch)           # 全名
+        header.setSectionResizeMode(3, QHeaderView.Stretch)           # 邮箱
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # 创建时间
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # 最后登录
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # 状态
+
+        # 设置最小列宽，确保时间列有足够空间
+        self.user_table.setColumnWidth(4, 150)  # 创建时间列最小宽度
+        self.user_table.setColumnWidth(5, 150)  # 最后登录列最小宽度
+
         self.user_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.user_table.setAlternatingRowColors(True)
         self.user_table.verticalHeader().setVisible(False)
@@ -758,7 +834,7 @@ class UserManagementWidget(QWidget):
                 created_at = ""
                 if user.created_at:
                     try:
-                        created_at = user.created_at.strftime("%Y-%m-%d %H:%M")
+                        created_at = user.created_at.strftime("%m-%d %H:%M")
                     except:
                         created_at = str(user.created_at)
                 self.user_table.setItem(row, 4, QTableWidgetItem(created_at))
@@ -767,7 +843,7 @@ class UserManagementWidget(QWidget):
                 last_login = "从未登录"
                 if user.last_login:
                     try:
-                        last_login = user.last_login.strftime("%Y-%m-%d %H:%M")
+                        last_login = user.last_login.strftime("%m-%d %H:%M")
                     except:
                         last_login = str(user.last_login)
                 self.user_table.setItem(row, 5, QTableWidgetItem(last_login))
