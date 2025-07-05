@@ -201,9 +201,12 @@ class FatigueDetectionGUI(QMainWindow):
 
         self.yawn_threshold = SimpleVar(0.6)
         self.mar_threshold = SimpleVar(0.6)
-        self.consecutive_threshold = 30
+        self.consecutive_threshold = 20  # 修改默认阈值为20（平衡模式）
         self.alert_cooldown = SimpleVar(5.0)
         self.current_mode = "balanced"
+
+        # 夜间模式相关变量
+        self.night_mode = False
         
         # 缓冲区（保持原有逻辑）
         self.face_buffer = deque(maxlen=SEQUENCE_LENGTH)
@@ -369,8 +372,27 @@ class FatigueDetectionGUI(QMainWindow):
         self.stop_btn.clicked.connect(self._stop_detection)
         self.stop_btn.setEnabled(False)
 
+        # 夜间模式按钮
+        self.night_mode_btn = QPushButton("🌙 夜间模式")
+        self.night_mode_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #7B1FA2;
+            }
+        """)
+        self.night_mode_btn.clicked.connect(self._toggle_night_mode)
+
         control_layout.addWidget(self.start_btn)
         control_layout.addWidget(self.stop_btn)
+        control_layout.addWidget(self.night_mode_btn)
         control_layout.addStretch()
 
         left_layout.addWidget(control_group)
@@ -789,7 +811,7 @@ class FatigueDetectionGUI(QMainWindow):
             'sensitive': {
                 'model_threshold': 0.5,
                 'mar_threshold': 0.55,
-                'consecutive_threshold': 20,
+                'consecutive_threshold': 10,  # 修改为10
                 'cooldown': 3.0,
                 'name': '🔥 敏感模式',
                 'color': '#FF5722'
@@ -797,7 +819,7 @@ class FatigueDetectionGUI(QMainWindow):
             'balanced': {
                 'model_threshold': 0.6,
                 'mar_threshold': 0.6,
-                'consecutive_threshold': 30,
+                'consecutive_threshold': 20,  # 修改为20
                 'cooldown': 5.0,
                 'name': '⚖️ 平衡模式',
                 'color': '#4CAF50'
@@ -805,7 +827,7 @@ class FatigueDetectionGUI(QMainWindow):
             'conservative': {
                 'model_threshold': 0.7,
                 'mar_threshold': 0.7,
-                'consecutive_threshold': 40,
+                'consecutive_threshold': 30,  # 修改为30
                 'cooldown': 7.0,
                 'name': '🛡️ 保守模式',
                 'color': '#2196F3'
@@ -907,8 +929,11 @@ class FatigueDetectionGUI(QMainWindow):
     def _update_video_display(self, frame, face_detected, yawn_prob, prediction):
         """更新视频显示"""
         try:
+            # 应用夜间模式效果
+            display_frame = self._apply_night_mode_effect(frame)
+
             # 调整图像大小
-            display_frame = cv2.resize(frame, (640, 480))
+            display_frame = cv2.resize(display_frame, (640, 480))
 
             # 转换为QImage
             height, width, channel = display_frame.shape
@@ -1011,6 +1036,67 @@ class FatigueDetectionGUI(QMainWindow):
 
         except Exception as e:
             print(f"❌ GUI更新错误: {e}")
+
+    def _toggle_night_mode(self):
+        """切换夜间模式"""
+        self.night_mode = not self.night_mode
+
+        if self.night_mode:
+            self.night_mode_btn.setText("☀️ 日间模式")
+            self.night_mode_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    font-size: 12px;
+                    font-weight: bold;
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #F57C00;
+                }
+            """)
+            print("🌙 切换到夜间模式")
+        else:
+            self.night_mode_btn.setText("🌙 夜间模式")
+            self.night_mode_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #9C27B0;
+                    color: white;
+                    font-size: 12px;
+                    font-weight: bold;
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #7B1FA2;
+                }
+            """)
+            print("☀️ 切换到日间模式")
+
+    def _apply_night_mode_effect(self, frame):
+        """应用夜间模式效果（模拟摄像头变暗）"""
+        if not self.night_mode:
+            return frame
+
+        # 降低亮度和对比度来模拟夜间效果
+        # 将图像转换为HSV色彩空间
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # 降低亮度（V通道）
+        hsv[:, :, 2] = hsv[:, :, 2] * 0.4  # 降低到40%的亮度
+
+        # 转换回BGR
+        darkened_frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+        # 添加轻微的蓝色调来模拟夜间效果
+        blue_tint = np.zeros_like(darkened_frame)
+        blue_tint[:, :, 0] = 30  # 增加蓝色通道
+        darkened_frame = cv2.addWeighted(darkened_frame, 0.9, blue_tint, 0.1, 0)
+
+        return darkened_frame
 
     def run(self):
         """运行GUI"""
