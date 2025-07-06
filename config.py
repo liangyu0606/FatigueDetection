@@ -9,7 +9,7 @@ DASH_PATH = os.path.join(DATASET_ROOT, "Dash")
 MIRROR_PATH = os.path.join(DATASET_ROOT, "Mirror")
 
 # dlib模型路径
-DLIB_PREDICTOR_PATH = "shape_predictor_68_face_landmarks.dat"
+DLIB_PREDICTOR_PATH = "output/shape_predictor_68_face_landmarks.dat"
 
 # 数据预处理参数
 FACE_SIZE = (128, 128)  # 人脸图像resize尺寸

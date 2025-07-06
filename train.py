@@ -1,12 +1,9 @@
 """
 训练脚本 - 打哈欠检测模型
 """
-import os
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
