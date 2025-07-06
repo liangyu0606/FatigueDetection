@@ -6,7 +6,6 @@
 """
 
 import sys
-import sqlite3
 import datetime
 import csv
 from typing import List, Dict, Optional, Tuple
@@ -14,10 +13,13 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QPushButton, QLineEdit, QLabel,
     QComboBox, QDateTimeEdit, QGroupBox, QMessageBox, QHeaderView,
-    QTabWidget, QTextEdit, QFileDialog, QDialog, QFormLayout
+    QTabWidget, QTextEdit, QFileDialog, QDialog, QFormLayout, QGridLayout
 )
 from PyQt5.QtCore import Qt, QDateTime, QTimer
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
+
+# 导入数据库配置
+from database_config import get_db_connection, init_database
 
 
 class AdminLoginDialog(QDialog):
@@ -242,39 +244,34 @@ class FatigueAdminGUI(QMainWindow):
 
         # 加载初始数据
         self._load_initial_data()
+
+        # 设置快捷键
+        self._setup_shortcuts()
+
+        # 设置状态栏
+        self.statusBar().showMessage("就绪")
     
     def _init_database(self):
         """初始化数据库（简化版）"""
         try:
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
-
-            # 创建简化的用户表
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
-                    password TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # 创建简化的疲劳记录表
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS fatigue_records (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    fatigue_level TEXT NOT NULL
-                )
-            ''')
-
-            conn.commit()
-            conn.close()
+            init_database()
             print("数据库初始化成功")
-
         except Exception as e:
             print(f"数据库初始化失败: {e}")
-    
+
+    def _setup_shortcuts(self):
+        """设置快捷键"""
+        from PyQt5.QtWidgets import QShortcut
+        from PyQt5.QtGui import QKeySequence
+
+        # F5刷新快捷键
+        refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        refresh_shortcut.activated.connect(self._refresh_records)
+
+        # Ctrl+R刷新快捷键
+        refresh_shortcut2 = QShortcut(QKeySequence("Ctrl+R"), self)
+        refresh_shortcut2.activated.connect(self._refresh_records)
+
     def _setup_style(self):
         """设置界面样式"""
         self.setStyleSheet("""
@@ -333,10 +330,24 @@ class FatigueAdminGUI(QMainWindow):
 
         # 管理员信息栏
         admin_info_group = QGroupBox("管理员信息")
+        admin_info_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 20px;
+                margin: 10px;
+                min-height: 60px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px 0 10px;
+            }
+        """)
         admin_info_layout = QHBoxLayout(admin_info_group)
 
         admin_label = QLabel(f"当前管理员: {self.admin_username}")
-        admin_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #2e7d32;")
+        admin_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #2e7d32; padding: 10px;")
         admin_info_layout.addWidget(admin_label)
 
         login_time_label = QLabel(f"登录时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -345,15 +356,17 @@ class FatigueAdminGUI(QMainWindow):
 
         admin_info_layout.addStretch()
 
-        logout_btn = QPushButton("注销")
+        logout_btn = QPushButton("退出")
         logout_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 border: none;
                 color: white;
-                padding: 6px 12px;
-                font-size: 12px;
-                border-radius: 3px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 30px;
             }
             QPushButton:hover {
                 background-color: #da190b;
@@ -387,6 +400,19 @@ class FatigueAdminGUI(QMainWindow):
 
         # 用户列表
         user_group = QGroupBox("用户列表")
+        user_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 15px;
+                margin: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px 0 10px;
+            }
+        """)
         user_layout = QVBoxLayout(user_group)
 
         # 用户表格
@@ -397,16 +423,63 @@ class FatigueAdminGUI(QMainWindow):
         ])
         self.user_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.user_table.setAlternatingRowColors(True)
+        self.user_table.setStyleSheet("""
+            QTableWidget {
+                font-size: 14px;
+                gridline-color: #ddd;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+            }
+        """)
         user_layout.addWidget(self.user_table)
 
         # 操作按钮
         button_layout = QHBoxLayout()
 
         refresh_btn = QPushButton("刷新用户列表")
-        refresh_btn.clicked.connect(self._load_users)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        refresh_btn.clicked.connect(self._refresh_users)
         button_layout.addWidget(refresh_btn)
 
         add_user_btn = QPushButton("添加用户")
+        add_user_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
         add_user_btn.clicked.connect(self._add_user)
         button_layout.addWidget(add_user_btn)
 
@@ -423,51 +496,128 @@ class FatigueAdminGUI(QMainWindow):
         
         # 搜索条件
         search_group = QGroupBox("搜索条件")
+        search_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 15px;
+                margin: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px 0 10px;
+            }
+        """)
         search_layout = QHBoxLayout(search_group)
         
         # 用户名搜索
-        search_layout.addWidget(QLabel("用户名:"))
+        username_label = QLabel("用户名:")
+        username_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        search_layout.addWidget(username_label)
         self.username_search = QLineEdit()
         self.username_search.setPlaceholderText("输入用户名进行搜索")
+        self.username_search.setStyleSheet("font-size: 14px; padding: 8px; min-height: 20px;")
         search_layout.addWidget(self.username_search)
         
         # 疲劳状态搜索
-        search_layout.addWidget(QLabel("疲劳状态:"))
+        fatigue_label = QLabel("疲劳状态:")
+        fatigue_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        search_layout.addWidget(fatigue_label)
         self.fatigue_status_combo = QComboBox()
-        self.fatigue_status_combo.addItems(["全部", "正常", "轻度疲劳", "中度疲劳", "重度疲劳"])
+        self.fatigue_status_combo.addItems(["全部", "轻度疲劳", "中度疲劳", "重度疲劳"])
+        self.fatigue_status_combo.setStyleSheet("font-size: 14px; padding: 8px; min-height: 20px;")
         search_layout.addWidget(self.fatigue_status_combo)
         
         # 时间范围（可选）
-        search_layout.addWidget(QLabel("开始时间:"))
+        start_label = QLabel("开始时间:")
+        start_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        search_layout.addWidget(start_label)
         self.start_datetime = QDateTimeEdit()
         self.start_datetime.setSpecialValueText("不限制")  # 空值显示文本
         self.start_datetime.setDateTime(QDateTime.currentDateTime().addDays(-30))
         self.start_datetime.setCalendarPopup(True)
+        self.start_datetime.setStyleSheet("font-size: 14px; padding: 8px; min-height: 20px;")
         self.start_datetime.clear()  # 初始为空
         search_layout.addWidget(self.start_datetime)
 
-        search_layout.addWidget(QLabel("结束时间:"))
+        end_label = QLabel("结束时间:")
+        end_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        search_layout.addWidget(end_label)
         self.end_datetime = QDateTimeEdit()
         self.end_datetime.setSpecialValueText("不限制")  # 空值显示文本
         self.end_datetime.setDateTime(QDateTime.currentDateTime())
         self.end_datetime.setCalendarPopup(True)
+        self.end_datetime.setStyleSheet("font-size: 14px; padding: 8px; min-height: 20px;")
         self.end_datetime.clear()  # 初始为空
         search_layout.addWidget(self.end_datetime)
         
         # 页面大小设置
-        search_layout.addWidget(QLabel("每页显示:"))
+        page_size_label = QLabel("每页显示:")
+        page_size_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        search_layout.addWidget(page_size_label)
         self.page_size_combo = QComboBox()
         self.page_size_combo.addItems(["10", "20", "50", "100"])
         self.page_size_combo.setCurrentText("20")  # 默认20条
+        self.page_size_combo.setStyleSheet("font-size: 14px; padding: 8px; min-height: 20px;")
         self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
         search_layout.addWidget(self.page_size_combo)
 
         # 搜索和刷新按钮
         search_btn = QPushButton("搜索")
+        search_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
         search_btn.clicked.connect(self._search_fatigue_records)
         search_layout.addWidget(search_btn)
 
+        clear_btn = QPushButton("重置")
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+        """)
+        clear_btn.clicked.connect(self._clear_search)
+        search_layout.addWidget(clear_btn)
+
         refresh_btn = QPushButton("刷新")
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
         refresh_btn.clicked.connect(self._refresh_records)
         search_layout.addWidget(refresh_btn)
 
@@ -475,6 +625,19 @@ class FatigueAdminGUI(QMainWindow):
         
         # 疲劳记录表格
         records_group = QGroupBox("疲劳记录")
+        records_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 15px;
+                margin: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px 0 10px;
+            }
+        """)
         records_layout = QVBoxLayout(records_group)
 
         self.fatigue_table = QTableWidget()
@@ -484,20 +647,78 @@ class FatigueAdminGUI(QMainWindow):
         ])
         self.fatigue_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.fatigue_table.setAlternatingRowColors(True)
+
+        # 设置表格字体大小
+        self.fatigue_table.setStyleSheet("""
+            QTableWidget {
+                font-size: 14px;
+                gridline-color: #ddd;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+            }
+        """)
         records_layout.addWidget(self.fatigue_table)
 
         # 分页控件
         pagination_layout = QHBoxLayout()
 
         self.prev_btn = QPushButton("上一页")
+        self.prev_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+        """)
         self.prev_btn.clicked.connect(self._prev_page)
         self.prev_btn.setEnabled(False)
         pagination_layout.addWidget(self.prev_btn)
 
         self.page_label = QLabel("第 1 页，共 0 条记录")
+        self.page_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 10px;")
         pagination_layout.addWidget(self.page_label)
 
         self.next_btn = QPushButton("下一页")
+        self.next_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+        """)
         self.next_btn.clicked.connect(self._next_page)
         self.next_btn.setEnabled(False)
         pagination_layout.addWidget(self.next_btn)
@@ -506,10 +727,40 @@ class FatigueAdminGUI(QMainWindow):
 
         # 操作按钮
         export_btn = QPushButton("导出到CSV")
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                border: none;
+                color: white;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #7B1FA2;
+            }
+        """)
         export_btn.clicked.connect(self.export_records_to_csv)
         pagination_layout.addWidget(export_btn)
 
         clear_btn = QPushButton("清空搜索")
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF5722;
+                border: none;
+                color: white;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #E64A19;
+            }
+        """)
         clear_btn.clicked.connect(self._clear_search)
         pagination_layout.addWidget(clear_btn)
 
@@ -526,27 +777,172 @@ class FatigueAdminGUI(QMainWindow):
         """创建统计分析标签页"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        
-        # 统计信息显示
+
+        # 统计信息显示 - 方格模式
         stats_group = QGroupBox("统计信息")
+        stats_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 18px;
+                font-weight: bold;
+                padding: 25px;
+                margin: 15px;
+                background-color: white;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 20px;
+                padding: 0 15px 0 15px;
+                background-color: white;
+            }
+        """)
         stats_layout = QVBoxLayout(stats_group)
-        
-        self.stats_text = QTextEdit()
-        self.stats_text.setReadOnly(True)
-        self.stats_text.setMaximumHeight(200)
-        stats_layout.addWidget(self.stats_text)
-        
+
+        # 创建方格布局
+        grid_layout = QGridLayout()
+
+        # 第一行：基础统计
+        self.total_records_label = QLabel()
+        self.total_records_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.total_records_label, 0, 0)
+
+        self.total_users_label = QLabel()
+        self.total_users_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.total_users_label, 0, 1)
+
+        self.recent_records_label = QLabel()
+        self.recent_records_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.recent_records_label, 0, 2)
+
+        # 第二行：疲劳等级统计
+        self.mild_fatigue_label = QLabel()
+        self.mild_fatigue_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.mild_fatigue_label, 1, 0)
+
+        self.moderate_fatigue_label = QLabel()
+        self.moderate_fatigue_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.moderate_fatigue_label, 1, 1)
+
+        self.severe_fatigue_label = QLabel()
+        self.severe_fatigue_label.setStyleSheet("""
+            QLabel {
+                border: 2px solid red;
+                padding: 20px;
+                background-color: white;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 80px;
+                min-width: 150px;
+                text-align: center;
+            }
+        """)
+        grid_layout.addWidget(self.severe_fatigue_label, 1, 2)
+
+        stats_layout.addLayout(grid_layout)
+
         # 刷新统计按钮
         refresh_stats_btn = QPushButton("刷新统计")
-        refresh_stats_btn.clicked.connect(self._load_statistics)
-        stats_layout.addWidget(refresh_stats_btn)
-        
+        refresh_stats_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 12px 24px;
+                font-size: 16px;
+                font-weight: bold;
+                border-radius: 6px;
+                margin: 15px;
+                max-width: 120px;
+                min-height: 40px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        refresh_stats_btn.clicked.connect(self._refresh_statistics)
+
+        # 创建按钮布局，使按钮居中
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(refresh_stats_btn)
+        button_layout.addStretch()
+        stats_layout.addLayout(button_layout)
+
         layout.addWidget(stats_group)
         
         # 详细统计表格
         detail_group = QGroupBox("用户疲劳统计详情")
+        detail_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 15px;
+                margin: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px 0 10px;
+            }
+        """)
         detail_layout = QVBoxLayout(detail_group)
-        
+
         self.stats_table = QTableWidget()
         self.stats_table.setColumnCount(5)
         self.stats_table.setHorizontalHeaderLabels([
@@ -554,6 +950,23 @@ class FatigueAdminGUI(QMainWindow):
         ])
         self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.stats_table.setAlternatingRowColors(True)
+        self.stats_table.setStyleSheet("""
+            QTableWidget {
+                font-size: 14px;
+                gridline-color: #ddd;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+            }
+        """)
         detail_layout.addWidget(self.stats_table)
         
         layout.addWidget(detail_group)
@@ -568,17 +981,16 @@ class FatigueAdminGUI(QMainWindow):
     def _load_users(self):
         """加载用户列表"""
         try:
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
 
-            cursor.execute('''
-                SELECT username, created_at
-                FROM users
-                ORDER BY created_at DESC
-            ''')
+                cursor.execute('''
+                    SELECT username, created_at
+                    FROM users
+                    ORDER BY created_at DESC
+                ''')
 
-            users = cursor.fetchall()
-            conn.close()
+                users = cursor.fetchall()
 
             self.user_table.setRowCount(len(users))
 
@@ -590,6 +1002,13 @@ class FatigueAdminGUI(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载用户列表失败: {e}")
+
+    def _refresh_users(self):
+        """刷新用户列表"""
+        self.statusBar().showMessage("正在刷新用户列表...")
+        self._load_users()
+        self.statusBar().showMessage("用户列表已刷新", 3000)
+        print("用户列表已刷新")
 
     def _add_user(self):
         """添加用户对话框"""
@@ -631,25 +1050,25 @@ class FatigueAdminGUI(QMainWindow):
                 return
 
             try:
-                conn = sqlite3.connect("fatigue_data.db")
-                cursor = conn.cursor()
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
 
-                cursor.execute('''
-                    INSERT INTO users (username, password)
-                    VALUES (?, ?)
-                ''', (username, password))
+                    cursor.execute('''
+                        INSERT INTO users (username, password)
+                        VALUES (%s, %s)
+                    ''', (username, password))
 
-                conn.commit()
-                conn.close()
+                    conn.commit()
 
                 QMessageBox.information(dialog, "成功", "用户添加成功")
                 dialog.accept()
                 self._load_users()
 
-            except sqlite3.IntegrityError:
-                QMessageBox.critical(dialog, "错误", "用户名已存在")
             except Exception as e:
-                QMessageBox.critical(dialog, "错误", f"添加用户失败: {e}")
+                if "Duplicate entry" in str(e):
+                    QMessageBox.critical(dialog, "错误", "用户名已存在")
+                else:
+                    QMessageBox.critical(dialog, "错误", f"添加用户失败: {e}")
 
         ok_btn.clicked.connect(add_user)
         cancel_btn.clicked.connect(dialog.reject)
@@ -657,15 +1076,14 @@ class FatigueAdminGUI(QMainWindow):
         dialog.exec_()
 
     def _logout(self):
-        """管理员注销"""
+        """退出程序"""
         reply = QMessageBox.question(
-            self, "确认注销", "确定要注销当前管理员账户吗？",
+            self, "确认退出", "确定要退出管理员界面吗？",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
 
         if reply == QMessageBox.Yes:
-            QMessageBox.information(self, "注销成功", "管理员账户已注销，程序将退出")
             self.close()
             QApplication.quit()
 
@@ -676,7 +1094,11 @@ class FatigueAdminGUI(QMainWindow):
 
     def _refresh_records(self):
         """刷新记录"""
-        self._load_fatigue_records()
+        self.statusBar().showMessage("正在刷新所有数据...")
+        # 重新加载所有数据
+        self._load_initial_data()
+        self.statusBar().showMessage("所有数据已刷新", 3000)
+        print("所有数据已刷新")
 
     def _load_fatigue_records(self):
         """加载疲劳记录（支持分页）"""
@@ -697,55 +1119,54 @@ class FatigueAdminGUI(QMainWindow):
             if not self.end_datetime.text() == "不限制":
                 end_time = self.end_datetime.dateTime().toPyDateTime()
 
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
 
-            # 构建查询条件
-            where_conditions = []
-            params = []
+                # 构建查询条件
+                where_conditions = []
+                params = []
 
-            # 时间条件
-            if start_time and end_time:
-                where_conditions.append("timestamp BETWEEN ? AND ?")
-                params.extend([start_time, end_time])
-            elif start_time:
-                where_conditions.append("timestamp >= ?")
-                params.append(start_time)
-            elif end_time:
-                where_conditions.append("timestamp <= ?")
-                params.append(end_time)
+                # 时间条件
+                if start_time and end_time:
+                    where_conditions.append("timestamp BETWEEN %s AND %s")
+                    params.extend([start_time, end_time])
+                elif start_time:
+                    where_conditions.append("timestamp >= %s")
+                    params.append(start_time)
+                elif end_time:
+                    where_conditions.append("timestamp <= %s")
+                    params.append(end_time)
 
-            # 用户名条件
-            if username:
-                where_conditions.append("username LIKE ?")
-                params.append(f"%{username}%")
+                # 用户名条件
+                if username:
+                    where_conditions.append("username LIKE %s")
+                    params.append(f"%{username}%")
 
-            # 疲劳状态条件
-            if fatigue_status != "全部":
-                where_conditions.append("fatigue_level = ?")
-                params.append(fatigue_status)
+                # 疲劳状态条件
+                if fatigue_status != "全部":
+                    where_conditions.append("fatigue_level = %s")
+                    params.append(fatigue_status)
 
-            # 构建WHERE子句
-            where_clause = ""
-            if where_conditions:
-                where_clause = "WHERE " + " AND ".join(where_conditions)
+                # 构建WHERE子句
+                where_clause = ""
+                if where_conditions:
+                    where_clause = "WHERE " + " AND ".join(where_conditions)
 
-            # 查询总记录数
-            count_query = f"SELECT COUNT(*) FROM fatigue_records {where_clause}"
-            cursor.execute(count_query, params)
-            self.total_records = cursor.fetchone()[0]
+                # 查询总记录数
+                count_query = f"SELECT COUNT(*) FROM fatigue_records {where_clause}"
+                cursor.execute(count_query, params)
+                self.total_records = cursor.fetchone()[0]
 
-            # 查询分页数据
-            query = f'''
-                SELECT username, timestamp, fatigue_level
-                FROM fatigue_records
-                {where_clause}
-                ORDER BY timestamp DESC
-                LIMIT ? OFFSET ?
-            '''
-            cursor.execute(query, params + [page_size, offset])
-            records = cursor.fetchall()
-            conn.close()
+                # 查询分页数据
+                query = f'''
+                    SELECT username, timestamp, fatigue_level
+                    FROM fatigue_records
+                    {where_clause}
+                    ORDER BY timestamp DESC
+                    LIMIT %s OFFSET %s
+                '''
+                cursor.execute(query, params + [page_size, offset])
+                records = cursor.fetchall()
 
             # 更新表格
             self._update_table(records)
@@ -764,7 +1185,7 @@ class FatigueAdminGUI(QMainWindow):
             for col, value in enumerate(record):
                 if value is None:
                     value = ""
-                elif col == 1:  # 时间戳格式化
+                elif col == 1:  # 时间戳格式化 (第2列)
                     try:
                         if isinstance(value, str):
                             dt = datetime.datetime.fromisoformat(value.replace('Z', ''))
@@ -775,7 +1196,7 @@ class FatigueAdminGUI(QMainWindow):
                 item = QTableWidgetItem(str(value))
 
                 # 根据疲劳等级设置颜色
-                if col == 2:  # 疲劳等级列
+                if col == 2:  # 疲劳等级列 (第3列)
                     if value == "重度疲劳":
                         item.setBackground(QColor(255, 200, 200))
                     elif value == "中度疲劳":
@@ -825,66 +1246,62 @@ class FatigueAdminGUI(QMainWindow):
         self.page_size_combo.setCurrentText("20")
         self.current_page = 1
         self._load_fatigue_records()
+        self.statusBar().showMessage("搜索条件已重置", 2000)
 
     def _load_statistics(self):
         """加载统计信息"""
         try:
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
 
-            # 总体统计
-            cursor.execute("SELECT COUNT(*) FROM fatigue_records")
-            total_records = cursor.fetchone()[0]
+                # 总体统计
+                cursor.execute("SELECT COUNT(*) FROM fatigue_records")
+                total_records = cursor.fetchone()[0]
 
-            cursor.execute("SELECT COUNT(DISTINCT username) FROM fatigue_records")
-            total_users = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(DISTINCT username) FROM fatigue_records")
+                total_users = cursor.fetchone()[0]
 
-            cursor.execute("""
-                SELECT fatigue_level, COUNT(*)
-                FROM fatigue_records
-                GROUP BY fatigue_level
-            """)
-            fatigue_stats = dict(cursor.fetchall())
+                cursor.execute("""
+                    SELECT fatigue_level, COUNT(*)
+                    FROM fatigue_records
+                    WHERE fatigue_level IN ('轻度疲劳', '中度疲劳', '重度疲劳')
+                    GROUP BY fatigue_level
+                """)
+                fatigue_stats = dict(cursor.fetchall())
 
-            # 最近7天的记录
-            week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
-            cursor.execute("""
-                SELECT COUNT(*) FROM fatigue_records
-                WHERE timestamp >= ?
-            """, (week_ago,))
-            recent_records = cursor.fetchone()[0]
+                # 最近7天的记录
+                week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
+                cursor.execute("""
+                    SELECT COUNT(*) FROM fatigue_records
+                    WHERE timestamp >= %s
+                """, (week_ago,))
+                recent_records = cursor.fetchone()[0]
 
-            # 生成统计文本
-            stats_text = f"""
-统计概览：
-• 总记录数：{total_records}
-• 活跃用户数：{total_users}
-• 最近7天记录：{recent_records}
+                # 更新方格显示
+                self.total_records_label.setText(f"总记录数:\n{total_records}")
+                self.total_users_label.setText(f"活跃用户数:\n{total_users}")
+                self.recent_records_label.setText(f"最近7天记录:\n{recent_records}")
 
-疲劳等级分布：
-• 正常：{fatigue_stats.get('正常', 0)} 次
-• 轻度疲劳：{fatigue_stats.get('轻度疲劳', 0)} 次
-• 中度疲劳：{fatigue_stats.get('中度疲劳', 0)} 次
-• 重度疲劳：{fatigue_stats.get('重度疲劳', 0)} 次
-            """
+                self.mild_fatigue_label.setText(f"轻度疲劳:\n{fatigue_stats.get('轻度疲劳', 0)} 次")
+                self.moderate_fatigue_label.setText(f"中度疲劳:\n{fatigue_stats.get('中度疲劳', 0)} 次")
+                self.severe_fatigue_label.setText(f"重度疲劳:\n{fatigue_stats.get('重度疲劳', 0)} 次")
 
-            self.stats_text.setText(stats_text.strip())
+                # 用户详细统计
+                cursor.execute("""
+                    SELECT
+                        username,
+                        SUM(CASE WHEN fatigue_level = '轻度疲劳' THEN 1 ELSE 0 END) as mild_count,
+                        SUM(CASE WHEN fatigue_level = '中度疲劳' THEN 1 ELSE 0 END) as moderate_count,
+                        SUM(CASE WHEN fatigue_level = '重度疲劳' THEN 1 ELSE 0 END) as severe_count,
+                        MAX(timestamp) as last_record
+                    FROM fatigue_records
+                    GROUP BY username
+                    ORDER BY (SUM(CASE WHEN fatigue_level = '轻度疲劳' THEN 1 ELSE 0 END) +
+                             SUM(CASE WHEN fatigue_level = '中度疲劳' THEN 1 ELSE 0 END) +
+                             SUM(CASE WHEN fatigue_level = '重度疲劳' THEN 1 ELSE 0 END)) DESC
+                """)
 
-            # 用户详细统计
-            cursor.execute("""
-                SELECT
-                    username,
-                    SUM(CASE WHEN fatigue_level = '轻度疲劳' THEN 1 ELSE 0 END) as mild_count,
-                    SUM(CASE WHEN fatigue_level = '中度疲劳' THEN 1 ELSE 0 END) as moderate_count,
-                    SUM(CASE WHEN fatigue_level = '重度疲劳' THEN 1 ELSE 0 END) as severe_count,
-                    MAX(timestamp) as last_record
-                FROM fatigue_records
-                GROUP BY username
-                ORDER BY (mild_count + moderate_count + severe_count) DESC
-            """)
-
-            user_stats = cursor.fetchall()
-            conn.close()
+                user_stats = cursor.fetchall()
 
             # 更新用户统计表格
             self.stats_table.setRowCount(len(user_stats))
@@ -906,6 +1323,13 @@ class FatigueAdminGUI(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载统计信息失败: {e}")
 
+    def _refresh_statistics(self):
+        """刷新统计信息"""
+        self.statusBar().showMessage("正在刷新统计信息...")
+        self._load_statistics()
+        self.statusBar().showMessage("统计信息已刷新", 3000)
+        print("统计信息已刷新")
+
     def add_fatigue_record(self, username: str, fatigue_level: str,
                           fatigue_score: float = 0.0, event_type: str = "detection",
                           confidence: float = 0.0, duration: float = 0.0,
@@ -923,22 +1347,21 @@ class FatigueAdminGUI(QMainWindow):
             additional_info: 附加信息
         """
         try:
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
 
-            # 确保用户存在
-            cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
-            if not cursor.fetchone():
-                cursor.execute("INSERT INTO users (username) VALUES (?)", (username,))
+                # 确保用户存在
+                cursor.execute("SELECT username FROM users WHERE username = %s", (username,))
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, "123456"))
 
-            cursor.execute('''
-                INSERT INTO fatigue_records
-                (username, timestamp, fatigue_level)
-                VALUES (?, ?, ?)
-            ''', (username, datetime.datetime.now(), fatigue_level))
+                cursor.execute('''
+                    INSERT INTO fatigue_records
+                    (username, timestamp, fatigue_level)
+                    VALUES (%s, %s, %s)
+                ''', (username, datetime.datetime.now(), fatigue_level))
 
-            conn.commit()
-            conn.close()
+                conn.commit()
 
             print(f"疲劳记录已添加: {username} - {fatigue_level}")
 
@@ -970,49 +1393,48 @@ class FatigueAdminGUI(QMainWindow):
             if not self.end_datetime.text() == "不限制":
                 end_time = self.end_datetime.dateTime().toPyDateTime()
 
-            conn = sqlite3.connect("fatigue_data.db")
-            cursor = conn.cursor()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
 
-            # 构建查询条件（与搜索相同的逻辑）
-            where_conditions = []
-            params = []
+                # 构建查询条件（与搜索相同的逻辑）
+                where_conditions = []
+                params = []
 
-            # 时间条件
-            if start_time and end_time:
-                where_conditions.append("timestamp BETWEEN ? AND ?")
-                params.extend([start_time, end_time])
-            elif start_time:
-                where_conditions.append("timestamp >= ?")
-                params.append(start_time)
-            elif end_time:
-                where_conditions.append("timestamp <= ?")
-                params.append(end_time)
+                # 时间条件
+                if start_time and end_time:
+                    where_conditions.append("timestamp BETWEEN %s AND %s")
+                    params.extend([start_time, end_time])
+                elif start_time:
+                    where_conditions.append("timestamp >= %s")
+                    params.append(start_time)
+                elif end_time:
+                    where_conditions.append("timestamp <= %s")
+                    params.append(end_time)
 
-            # 用户名条件
-            if username:
-                where_conditions.append("username LIKE ?")
-                params.append(f"%{username}%")
+                # 用户名条件
+                if username:
+                    where_conditions.append("username LIKE %s")
+                    params.append(f"%{username}%")
 
-            # 疲劳状态条件
-            if fatigue_status != "全部":
-                where_conditions.append("fatigue_level = ?")
-                params.append(fatigue_status)
+                # 疲劳状态条件
+                if fatigue_status != "全部":
+                    where_conditions.append("fatigue_level = %s")
+                    params.append(fatigue_status)
 
-            # 构建WHERE子句
-            where_clause = ""
-            if where_conditions:
-                where_clause = "WHERE " + " AND ".join(where_conditions)
+                # 构建WHERE子句
+                where_clause = ""
+                if where_conditions:
+                    where_clause = "WHERE " + " AND ".join(where_conditions)
 
-            # 查询所有符合条件的记录
-            query = f'''
-                SELECT username, timestamp, fatigue_level
-                FROM fatigue_records
-                {where_clause}
-                ORDER BY timestamp DESC
-            '''
-            cursor.execute(query, params)
-            records = cursor.fetchall()
-            conn.close()
+                # 查询所有符合条件的记录
+                query = f'''
+                    SELECT username, timestamp, fatigue_level
+                    FROM fatigue_records
+                    {where_clause}
+                    ORDER BY timestamp DESC
+                '''
+                cursor.execute(query, params)
+                records = cursor.fetchall()
 
             # 写入CSV文件
             with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
@@ -1023,7 +1445,7 @@ class FatigueAdminGUI(QMainWindow):
                 for record in records:
                     formatted_record = list(record)
                     try:
-                        if isinstance(formatted_record[1], str):
+                        if isinstance(formatted_record[1], str):  # 时间戳现在是第2列
                             dt = datetime.datetime.fromisoformat(formatted_record[1].replace('Z', ''))
                             formatted_record[1] = dt.strftime("%Y-%m-%d %H:%M:%S")
                     except:
@@ -1062,29 +1484,28 @@ def record_user_fatigue(username: str, fatigue_level: str, **kwargs):
         **kwargs: 其他参数
     """
     try:
-        conn = sqlite3.connect("fatigue_data.db")
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # 确保用户存在（为测试数据创建用户时使用默认密码）
-        cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
-        if not cursor.fetchone():
-            # 为测试用户创建默认密码
-            default_password = "123456"
-            cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, default_password))
+            # 确保用户存在（为测试数据创建用户时使用默认密码）
+            cursor.execute("SELECT username FROM users WHERE username = %s", (username,))
+            if not cursor.fetchone():
+                # 为测试用户创建默认密码
+                default_password = "123456"
+                cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, default_password))
 
-        # 插入疲劳记录
-        cursor.execute('''
-            INSERT INTO fatigue_records
-            (username, timestamp, fatigue_level)
-            VALUES (?, ?, ?)
-        ''', (
-            username,
-            datetime.datetime.now(),
-            fatigue_level
-        ))
+            # 插入疲劳记录
+            cursor.execute('''
+                INSERT INTO fatigue_records
+                (username, timestamp, fatigue_level)
+                VALUES (%s, %s, %s)
+            ''', (
+                username,
+                datetime.datetime.now(),
+                fatigue_level
+            ))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         print(f"疲劳记录已记录: {username} - {fatigue_level}")
 
@@ -1098,30 +1519,25 @@ def add_test_data():
 
     # 首先检查是否已经有疲劳记录
     try:
-        conn = sqlite3.connect("fatigue_data.db")
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("SELECT COUNT(*) FROM fatigue_records")
-        record_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM fatigue_records")
+            record_count = cursor.fetchone()[0]
 
-        if record_count > 0:
-            print("数据库中已存在疲劳记录，跳过测试数据添加")
-            conn.close()
-            return
+            if record_count > 0:
+                print("数据库中已存在疲劳记录，跳过测试数据添加")
+                return
 
-        # 检查是否已经有测试用户
-        test_users = ["张三", "李四", "王五", "赵六", "钱七"]
-        cursor.execute("SELECT COUNT(*) FROM fatigue_records WHERE username IN ({})".format(
-            ','.join(['?' for _ in test_users])
-        ), test_users)
-        test_record_count = cursor.fetchone()[0]
+            # 检查是否已经有测试用户
+            test_users = ["张三", "李四", "王五", "赵六", "钱七"]
+            placeholders = ','.join(['%s' for _ in test_users])
+            cursor.execute(f"SELECT COUNT(*) FROM fatigue_records WHERE username IN ({placeholders})", test_users)
+            test_record_count = cursor.fetchone()[0]
 
-        if test_record_count > 0:
-            print("数据库中已存在测试数据，跳过重复添加")
-            conn.close()
-            return
-
-        conn.close()
+            if test_record_count > 0:
+                print("数据库中已存在测试数据，跳过重复添加")
+                return
 
     except Exception as e:
         print(f"检查数据库状态失败: {e}")
@@ -1146,42 +1562,18 @@ def add_test_data():
 def reset_database():
     """重置数据库"""
     try:
-        import os
-        if os.path.exists("fatigue_data.db"):
-            os.remove("fatigue_data.db")
-            print("数据库文件已删除")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # 删除现有表
+            cursor.execute("DROP TABLE IF EXISTS fatigue_records")
+            cursor.execute("DROP TABLE IF EXISTS users")
+
+            conn.commit()
+            print("现有表已删除")
 
         # 重新初始化数据库
-        conn = sqlite3.connect("fatigue_data.db")
-        cursor = conn.cursor()
-
-        # 创建用户表
-        cursor.execute('''
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                full_name TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # 创建疲劳记录表
-        cursor.execute('''
-            CREATE TABLE fatigue_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                fatigue_level TEXT NOT NULL,
-                fatigue_score REAL DEFAULT 0.0,
-                event_type TEXT DEFAULT 'detection',
-                confidence REAL DEFAULT 0.0,
-                duration REAL DEFAULT 0.0,
-                additional_info TEXT
-            )
-        ''')
-
-        conn.commit()
-        conn.close()
+        init_database()
         print("数据库重置成功")
 
     except Exception as e:
@@ -1207,10 +1599,9 @@ def main():
 
     # 检查数据库结构
     try:
-        conn = sqlite3.connect("fatigue_data.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, full_name, created_at FROM users LIMIT 1")
-        conn.close()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT username, created_at FROM users LIMIT 1")
     except:
         print("检测到数据库结构问题，正在重置数据库...")
         reset_database()
@@ -1221,14 +1612,12 @@ def main():
 
     # 检查数据库是否为空，只有为空时才询问是否添加测试数据
     try:
-        conn = sqlite3.connect("fatigue_data.db")
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # 只检查疲劳记录是否为空，因为用户登录时会自动创建用户记录
-        cursor.execute("SELECT COUNT(*) FROM fatigue_records")
-        record_count = cursor.fetchone()[0]
-
-        conn.close()
+            # 只检查疲劳记录是否为空，因为用户登录时会自动创建用户记录
+            cursor.execute("SELECT COUNT(*) FROM fatigue_records")
+            record_count = cursor.fetchone()[0]
 
         # 只有在没有任何疲劳记录时才询问是否添加测试数据
         if record_count == 0:

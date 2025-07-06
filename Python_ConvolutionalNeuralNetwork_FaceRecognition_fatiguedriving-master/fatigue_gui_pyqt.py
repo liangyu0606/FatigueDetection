@@ -11,17 +11,508 @@ import time
 import threading
 import os
 import sys
+import pygame
 
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                            QHBoxLayout, QGridLayout, QLabel, QPushButton, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                            QHBoxLayout, QGridLayout, QLabel, QPushButton,
                             QProgressBar, QTextEdit, QGroupBox, QFrame,
-                            QScrollArea, QSplitter, QMessageBox, QSlider)
+                            QScrollArea, QSplitter, QMessageBox, QSlider, QSizePolicy,
+                            QDialog, QFormLayout, QLineEdit)
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, pyqtSlot
 from PyQt5.QtGui import QPixmap, QImage, QFont, QPalette, QColor
+import datetime
 
 from config import *
 from model import create_model
 from utils import extract_face_landmarks, normalize_landmarks
+from database_config import get_db_connection, init_database
+
+
+class UserRegisterDialog(QDialog):
+    """用户注册对话框"""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("用户注册")
+        self.setFixedSize(1200, 750)  # 与登录界面相同大小
+        self.setModal(True)
+
+        self._init_database()
+        self._create_ui()
+
+    def _init_database(self):
+        """初始化用户数据库"""
+        try:
+            init_database()
+        except Exception as e:
+            print(f"数据库初始化失败: {e}")
+
+    def _create_ui(self):
+        """创建注册界面"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(40)
+        layout.setContentsMargins(60, 60, 60, 60)
+
+        # 标题
+        title_label = QLabel("疲劳检测系统用户注册")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 48px; font-weight: bold; margin: 30px; color: #2196F3;")
+        layout.addWidget(title_label)
+
+        # 添加弹性空间
+        layout.addStretch(1)
+
+        # 用户名区域
+        username_layout = QHBoxLayout()
+        username_label = QLabel("用户名:")
+        username_label.setStyleSheet("font-size: 36px; font-weight: bold; min-width: 150px;")
+        username_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.username_edit = QLineEdit()
+        self.username_edit.setPlaceholderText("请输入用户名")
+        self.username_edit.setStyleSheet("padding: 30px; font-size: 42px; min-height: 45px; border: 2px solid #ccc; border-radius: 10px;")
+
+        username_layout.addWidget(username_label)
+        username_layout.addWidget(self.username_edit, 2)
+        layout.addLayout(username_layout)
+
+        # 密码区域
+        password_layout = QHBoxLayout()
+        password_label = QLabel("密码:")
+        password_label.setStyleSheet("font-size: 36px; font-weight: bold; min-width: 150px;")
+        password_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.password_edit = QLineEdit()
+        self.password_edit.setPlaceholderText("请输入密码（至少6位）")
+        self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setStyleSheet("padding: 30px; font-size: 42px; min-height: 45px; border: 2px solid #ccc; border-radius: 10px;")
+
+        password_layout.addWidget(password_label)
+        password_layout.addWidget(self.password_edit, 2)
+        layout.addLayout(password_layout)
+
+        # 确认密码区域
+        confirm_layout = QHBoxLayout()
+        confirm_label = QLabel("确认密码:")
+        confirm_label.setStyleSheet("font-size: 36px; font-weight: bold; min-width: 150px;")
+        confirm_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.confirm_edit = QLineEdit()
+        self.confirm_edit.setPlaceholderText("请再次输入密码")
+        self.confirm_edit.setEchoMode(QLineEdit.Password)
+        self.confirm_edit.setStyleSheet("padding: 30px; font-size: 42px; min-height: 45px; border: 2px solid #ccc; border-radius: 10px;")
+
+        confirm_layout.addWidget(confirm_label)
+        confirm_layout.addWidget(self.confirm_edit, 2)
+        layout.addLayout(confirm_layout)
+
+        # 添加弹性空间
+        layout.addStretch(1)
+
+        # 提示信息标签
+        self.message_label = QLabel("")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("""
+            QLabel {
+                font-size: 24px;
+                font-weight: bold;
+                padding: 15px;
+                border-radius: 8px;
+                min-height: 30px;
+            }
+        """)
+        self.message_label.hide()  # 初始隐藏
+        layout.addWidget(self.message_label)
+
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(60)
+
+        # 注册按钮
+        register_btn = QPushButton("注册")
+        register_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                border: none;
+                color: white;
+                padding: 36px 60px;
+                font-size: 42px;
+                font-weight: bold;
+                border-radius: 15px;
+                min-height: 60px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
+        register_btn.clicked.connect(self._register)
+        button_layout.addWidget(register_btn)
+
+        # 返回登录按钮
+        back_btn = QPushButton("返回登录")
+        back_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #757575;
+                border: none;
+                color: white;
+                padding: 36px 60px;
+                font-size: 42px;
+                font-weight: bold;
+                border-radius: 15px;
+                min-height: 60px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #616161;
+            }
+            QPushButton:pressed {
+                background-color: #424242;
+            }
+        """)
+        back_btn.clicked.connect(self.reject)
+        button_layout.addWidget(back_btn)
+
+        layout.addLayout(button_layout)
+
+        # 添加底部弹性空间
+        layout.addStretch(1)
+
+        # 设置回车键绑定
+        self.username_edit.returnPressed.connect(self._register)
+        self.password_edit.returnPressed.connect(self._register)
+        self.confirm_edit.returnPressed.connect(self._register)
+
+        # 设置焦点
+        self.username_edit.setFocus()
+
+    def _show_message(self, message, message_type="error"):
+        """显示提示信息"""
+        self.message_label.setText(message)
+
+        if message_type == "error":
+            self.message_label.setStyleSheet("""
+                QLabel {
+                    font-size: 24px;
+                    font-weight: bold;
+                    padding: 15px;
+                    border-radius: 8px;
+                    min-height: 30px;
+                    background-color: #ffebee;
+                    color: #c62828;
+                    border: 2px solid #f44336;
+                }
+            """)
+        elif message_type == "success":
+            self.message_label.setStyleSheet("""
+                QLabel {
+                    font-size: 24px;
+                    font-weight: bold;
+                    padding: 15px;
+                    border-radius: 8px;
+                    min-height: 30px;
+                    background-color: #e8f5e8;
+                    color: #2e7d32;
+                    border: 2px solid #4caf50;
+                }
+            """)
+
+        self.message_label.show()
+
+        # 3秒后自动隐藏提示信息
+        QTimer.singleShot(3000, self._hide_message)
+
+    def _hide_message(self):
+        """隐藏提示信息"""
+        self.message_label.hide()
+
+    def _register(self):
+        """执行注册"""
+        username = self.username_edit.text().strip()
+        password = self.password_edit.text()
+        confirm_password = self.confirm_edit.text()
+
+        # 隐藏之前的提示信息
+        self._hide_message()
+
+        # 验证输入
+        if not username:
+            self._show_message("请输入用户名", "error")
+            return
+
+        if not password:
+            self._show_message("请输入密码", "error")
+            return
+
+        if not confirm_password:
+            self._show_message("请确认密码", "error")
+            return
+
+        if len(password) < 6:
+            self._show_message("密码长度至少6位", "error")
+            return
+
+        if password != confirm_password:
+            self._show_message("两次输入的密码不一致", "error")
+            return
+
+        # 执行注册
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)",
+                             (username, password))
+                conn.commit()
+
+            self._show_message(f"用户 {username} 注册成功！", "success")
+            # 延迟关闭对话框，让用户看到成功提示
+            QTimer.singleShot(2000, self.accept)
+
+        except Exception as e:
+            if "Duplicate entry" in str(e):
+                self._show_message("用户名已存在，请选择其他用户名", "error")
+            else:
+                self._show_message(f"注册失败: {e}", "error")
+
+
+class UserLoginDialog(QDialog):
+    """用户登录对话框"""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("用户登录")
+        self.setFixedSize(1200, 750)  # 放大3倍 (400*3, 250*3)
+        self.setModal(True)
+
+        self.current_user = None
+        self.authenticated = False
+        self._init_database()
+        self._create_ui()
+
+    def _init_database(self):
+        """初始化用户数据库"""
+        try:
+            init_database()
+        except Exception as e:
+            print(f"数据库初始化失败: {e}")
+
+    def _create_ui(self):
+        """创建登录界面"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(40)
+        layout.setContentsMargins(60, 60, 60, 60)
+
+        # 标题
+        title_label = QLabel("疲劳检测系统用户登录")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 48px; font-weight: bold; margin: 30px; color: #2e7d32;")
+        layout.addWidget(title_label)
+
+        # 添加弹性空间
+        layout.addStretch(1)
+
+        # 用户名区域
+        username_layout = QHBoxLayout()
+        username_label = QLabel("用户名:")
+        username_label.setStyleSheet("font-size: 36px; font-weight: bold; min-width: 150px;")
+        username_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.username_edit = QLineEdit()
+        self.username_edit.setPlaceholderText("请输入用户名")
+        self.username_edit.setStyleSheet("padding: 30px; font-size: 42px; min-height: 45px; border: 2px solid #ccc; border-radius: 10px;")
+
+        username_layout.addWidget(username_label)
+        username_layout.addWidget(self.username_edit, 2)
+        layout.addLayout(username_layout)
+
+        # 密码区域
+        password_layout = QHBoxLayout()
+        password_label = QLabel("密码:")
+        password_label.setStyleSheet("font-size: 36px; font-weight: bold; min-width: 150px;")
+        password_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.password_edit = QLineEdit()
+        self.password_edit.setPlaceholderText("请输入密码")
+        self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setStyleSheet("padding: 30px; font-size: 42px; min-height: 45px; border: 2px solid #ccc; border-radius: 10px;")
+
+        password_layout.addWidget(password_label)
+        password_layout.addWidget(self.password_edit, 2)
+        layout.addLayout(password_layout)
+
+        # 添加弹性空间
+        layout.addStretch(1)
+
+        # 提示信息标签
+        self.message_label = QLabel("")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("""
+            QLabel {
+                font-size: 24px;
+                font-weight: bold;
+                padding: 15px;
+                border-radius: 8px;
+                min-height: 30px;
+            }
+        """)
+        self.message_label.hide()  # 初始隐藏
+        layout.addWidget(self.message_label)
+
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(60)  # 增加按钮间距
+
+        # 登录按钮
+        login_btn = QPushButton("登录")
+        login_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 36px 60px;
+                font-size: 42px;
+                font-weight: bold;
+                border-radius: 15px;
+                min-height: 60px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
+        login_btn.clicked.connect(self._login)
+        button_layout.addWidget(login_btn)
+
+        # 注册按钮
+        register_btn = QPushButton("注册")
+        register_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                border: none;
+                color: white;
+                padding: 36px 60px;
+                font-size: 42px;
+                font-weight: bold;
+                border-radius: 15px;
+                min-height: 60px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
+        register_btn.clicked.connect(self._open_register)
+        button_layout.addWidget(register_btn)
+
+        layout.addLayout(button_layout)
+
+        # 添加底部弹性空间
+        layout.addStretch(1)
+
+        # 设置回车键绑定
+        self.username_edit.returnPressed.connect(self._login)
+        self.password_edit.returnPressed.connect(self._login)
+
+        # 设置焦点
+        self.username_edit.setFocus()
+
+    def _show_message(self, message, message_type="error"):
+        """显示提示信息"""
+        self.message_label.setText(message)
+
+        if message_type == "error":
+            self.message_label.setStyleSheet("""
+                QLabel {
+                    font-size: 24px;
+                    font-weight: bold;
+                    padding: 15px;
+                    border-radius: 8px;
+                    min-height: 30px;
+                    background-color: #ffebee;
+                    color: #c62828;
+                    border: 2px solid #f44336;
+                }
+            """)
+        elif message_type == "success":
+            self.message_label.setStyleSheet("""
+                QLabel {
+                    font-size: 24px;
+                    font-weight: bold;
+                    padding: 15px;
+                    border-radius: 8px;
+                    min-height: 30px;
+                    background-color: #e8f5e8;
+                    color: #2e7d32;
+                    border: 2px solid #4caf50;
+                }
+            """)
+
+        self.message_label.show()
+
+        # 3秒后自动隐藏提示信息
+        QTimer.singleShot(3000, self._hide_message)
+
+    def _hide_message(self):
+        """隐藏提示信息"""
+        self.message_label.hide()
+
+    def _login(self):
+        """用户登录"""
+        username = self.username_edit.text().strip()
+        password = self.password_edit.text()
+
+        # 隐藏之前的提示信息
+        self._hide_message()
+
+        if not username or not password:
+            self._show_message("请输入用户名和密码", "error")
+            return
+
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("SELECT username, password FROM users WHERE username = %s", (username,))
+                user = cursor.fetchone()
+
+            if user and user[1] == password:  # 简单的密码验证
+                self.current_user = {
+                    'username': user[0],
+                    'full_name': user[0]  # 使用用户名作为显示名
+                }
+                self.authenticated = True
+                self._show_message(f"登录成功，欢迎 {self.current_user['username']}!", "success")
+                # 延迟关闭对话框，让用户看到成功提示
+                QTimer.singleShot(1000, self.accept)
+            else:
+                self._show_message("用户名或密码错误", "error")
+                self.password_edit.clear()
+                self.password_edit.setFocus()
+
+        except Exception as e:
+            self._show_message(f"登录失败: {e}", "error")
+
+    def _open_register(self):
+        """打开注册页面"""
+        register_dialog = UserRegisterDialog()
+        if register_dialog.exec_() == QDialog.Accepted:
+            # 注册成功，显示成功提示
+            self._show_message("注册成功！请使用新账户登录", "success")
+            # 清空当前输入
+            self.username_edit.clear()
+            self.password_edit.clear()
+            self.username_edit.setFocus()
+
 
 class VideoThread(QThread):
     """视频处理线程 - 保持原有检测逻辑"""
@@ -173,9 +664,14 @@ class FatigueDetectionGUI(QMainWindow):
         super().__init__()
         self.model_path = model_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+
+        # 用户登录
+        self.current_user = None
+        if not self._user_login():
+            sys.exit()
+
         # 初始化主窗口
-        self.setWindowTitle("疲劳驾驶检测系统 - PyQt版本")
+        self.setWindowTitle(f"疲劳驾驶检测系统 - {self.current_user['full_name']}")
         self.setGeometry(100, 100, 1400, 900)
         
         # 加载模型（保持原有逻辑）
@@ -207,7 +703,13 @@ class FatigueDetectionGUI(QMainWindow):
 
         # 夜间模式相关变量
         self.night_mode = False
-        
+
+        # 音频警告相关变量
+        self.audio_initialized = False
+        self.warning_sound = None
+        self.last_fatigue_status = "正常"  # 记录上一次的疲劳状态
+        self.audio_path = os.path.join(os.path.dirname(__file__), "static", "warning.mp3")
+
         # 缓冲区（保持原有逻辑）
         self.face_buffer = deque(maxlen=SEQUENCE_LENGTH)
         self.landmark_buffer = deque(maxlen=SEQUENCE_LENGTH)
@@ -228,24 +730,27 @@ class FatigueDetectionGUI(QMainWindow):
         # 疲劳状态评估相关（保持原有逻辑）
         self.recent_yawns = []
         self.recent_blinks = []
-        self.fatigue_window = 60
+        self.fatigue_window = 30  # 修改为30秒恢复正常
         self.last_blink_time = 0
         self.eye_closed_frames = 0
         self.eye_closed_threshold = 10
-        self.long_eye_closed_threshold = 90
+        self.long_eye_closed_threshold = 60  # 修改为4秒 (4秒 × 15FPS = 60帧)
         self.eye_closed_start_time = None
         
+        # 初始化音频系统
+        self._init_audio()
+
         # 创建GUI
         self._create_gui()
-        
+
         # 设置样式
         self._set_style()
-        
+
         # 定时器更新GUI
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_gui)
         self.timer.start(100)  # 100ms更新一次
-        
+
         # 应用默认的平衡模式
         self._apply_preset('balanced')
 
@@ -270,6 +775,30 @@ class FatigueDetectionGUI(QMainWindow):
         print("❌ 未检测到可用摄像头，使用默认索引 0")
         return 0
 
+    def _init_audio(self):
+        """初始化音频系统"""
+        try:
+            pygame.mixer.init()
+            if os.path.exists(self.audio_path):
+                self.warning_sound = pygame.mixer.Sound(self.audio_path)
+                self.audio_initialized = True
+                print("✅ 音频系统初始化成功")
+            else:
+                print(f"❌ 警告音频文件不存在: {self.audio_path}")
+                self.audio_initialized = False
+        except Exception as e:
+            print(f"❌ 音频系统初始化失败: {e}")
+            self.audio_initialized = False
+
+    def _play_warning_sound(self):
+        """播放警告音频"""
+        if self.audio_initialized and self.warning_sound:
+            try:
+                self.warning_sound.play()
+                print("🔊 播放警告音频")
+            except Exception as e:
+                print(f"❌ 播放音频失败: {e}")
+
     def _load_model(self):
         """加载模型（保持原有逻辑）"""
         try:
@@ -289,10 +818,16 @@ class FatigueDetectionGUI(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # 主布局
-        main_layout = QHBoxLayout(central_widget)
+        # 主布局（垂直）
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # 创建分割器
+        # 用户信息栏（简化版）
+        user_info_frame = self._create_user_info_bar()
+        main_layout.addWidget(user_info_frame)
+
+        # 创建分割器（恢复原来的布局）
         splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter)
 
@@ -304,8 +839,77 @@ class FatigueDetectionGUI(QMainWindow):
         right_panel = self._create_right_panel()
         splitter.addWidget(right_panel)
 
-        # 设置分割比例
-        splitter.setSizes([800, 600])
+        # 设置分割比例，给左侧视频预览更多空间
+        splitter.setSizes([900, 500])
+
+        # 保存splitter引用以便后续使用
+        self.splitter = splitter
+
+    def _create_user_info_bar(self):
+        """创建简化的用户信息栏"""
+        user_frame = QFrame()
+        user_frame.setFixedHeight(35)  # 固定高度，给主界面留出空间
+        user_frame.setStyleSheet("""
+            QFrame {
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #dee2e6;
+                margin: 0px;
+                padding: 0px;
+            }
+        """)
+
+        layout = QHBoxLayout(user_frame)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(15)
+
+        # 简化的用户信息
+        user_label = QLabel(f"当前用户: {self.current_user['username']}")
+        user_label.setStyleSheet("font-size: 12px; color: #495057; font-weight: bold;")
+        layout.addWidget(user_label)
+
+        # 登录时间（简化）
+        login_time = datetime.datetime.now().strftime("%H:%M")
+        time_label = QLabel(f"登录时间: {login_time}")
+        time_label.setStyleSheet("font-size: 11px; color: #6c757d;")
+        layout.addWidget(time_label)
+
+        layout.addStretch()
+
+        # 退出按钮
+        logout_btn = QPushButton("退出")
+        logout_btn.setFixedSize(50, 25)
+        logout_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #dc3545;
+                border: none;
+                color: white;
+                font-size: 11px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+            QPushButton:pressed {
+                background-color: #bd2130;
+            }
+        """)
+        logout_btn.clicked.connect(self._logout)
+        layout.addWidget(logout_btn)
+
+        return user_frame
+
+    def _logout(self):
+        """用户退出"""
+        reply = QMessageBox.question(
+            self, "确认退出", "确定要退出疲劳检测系统吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.close()
+            QApplication.quit()
 
     def _create_left_panel(self):
         """创建左侧面板"""
@@ -318,7 +922,7 @@ class FatigueDetectionGUI(QMainWindow):
         video_layout = QVBoxLayout(video_group)
 
         self.video_label = QLabel("等待摄像头启动...")
-        self.video_label.setMinimumSize(640, 480)
+        self.video_label.setMinimumSize(480, 360)  # 增加最小尺寸，保持4:3比例
         self.video_label.setStyleSheet("""
             QLabel {
                 background-color: #333333;
@@ -328,9 +932,14 @@ class FatigueDetectionGUI(QMainWindow):
             }
         """)
         self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setScaledContents(False)  # 不自动缩放内容
+
+        # 设置尺寸策略，让视频标签能够扩展
+        self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         video_layout.addWidget(self.video_label)
 
-        left_layout.addWidget(video_group)
+        left_layout.addWidget(video_group, 3)  # 给视频组更大的权重
 
         # 控制按钮
         control_group = QGroupBox("控制面板")
@@ -395,7 +1004,7 @@ class FatigueDetectionGUI(QMainWindow):
         control_layout.addWidget(self.night_mode_btn)
         control_layout.addStretch()
 
-        left_layout.addWidget(control_group)
+        left_layout.addWidget(control_group, 0)  # 控制按钮组不占用额外空间
 
         # 当前设置
         settings_group = QGroupBox("当前设置")
@@ -406,14 +1015,14 @@ class FatigueDetectionGUI(QMainWindow):
         self.current_mode_label.setFont(QFont("Arial", 11, QFont.Bold))
         self.current_mode_label.setStyleSheet("color: #4CAF50;")
 
-        self.current_params_label = QLabel("模型阈值: 0.60 | MAR阈值: 0.60 | 连续阈值: 30帧 | 冷却: 5.0秒")
+        self.current_params_label = QLabel("模型阈值: 0.60 | MAR阈值: 0.60 | 连续阈值: 20帧 | 冷却: 5.0秒")
         self.current_params_label.setFont(QFont("Arial", 9))
         self.current_params_label.setStyleSheet("color: #666666;")
 
         settings_layout.addWidget(self.current_mode_label)
         settings_layout.addWidget(self.current_params_label)
 
-        left_layout.addWidget(settings_group)
+        left_layout.addWidget(settings_group, 0)  # 设置组不占用额外空间
 
         # 快速预设
         preset_group = QGroupBox("快速预设")
@@ -473,7 +1082,7 @@ class FatigueDetectionGUI(QMainWindow):
         preset_layout.addWidget(balanced_btn)
         preset_layout.addWidget(conservative_btn)
 
-        left_layout.addWidget(preset_group)
+        left_layout.addWidget(preset_group, 0)  # 预设按钮组不占用额外空间
 
         return left_widget
 
@@ -544,7 +1153,7 @@ class FatigueDetectionGUI(QMainWindow):
         progress_layout.addWidget(self.progress_bar)
         monitor_layout.addWidget(progress_widget)
 
-        right_layout.addWidget(monitor_group)
+        right_layout.addWidget(monitor_group, 0)  # 监控组不占用额外空间
 
         # 会话统计区域
         stats_group = QGroupBox("会话统计")
@@ -577,28 +1186,75 @@ class FatigueDetectionGUI(QMainWindow):
         stats_grid_layout.addWidget(self.blink_status_widget, 2, 0, 1, 2)
 
         stats_layout.addWidget(stats_grid_widget)
-        right_layout.addWidget(stats_group)
+        right_layout.addWidget(stats_group, 0)  # 统计组不占用额外空间
 
         # 警报历史
         alert_group = QGroupBox("警报历史")
         alert_group.setFont(QFont("Arial", 12, QFont.Bold))
+        alert_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                color: #d32f2f;
+                border: 2px solid #ff0000;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px 0 8px;
+                color: #d32f2f;
+                font-weight: bold;
+            }
+        """)
         alert_layout = QVBoxLayout(alert_group)
 
         self.alert_text = QTextEdit()
-        self.alert_text.setMaximumHeight(150)
+        self.alert_text.setMinimumHeight(300)  # 设置最小高度，让它占用更多空间
+        self.alert_text.setMaximumHeight(400)  # 增加最大高度
         self.alert_text.setStyleSheet("""
             QTextEdit {
                 background-color: #ffffff;
-                border: 2px solid #cccccc;
-                border-radius: 5px;
-                font-family: 'Consolas', monospace;
-                font-size: 10px;
+                border: 3px solid #ff0000;
+                border-radius: 8px;
+                font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+                font-size: 13px;
+                font-weight: 500;
+                line-height: 1.6;
+                padding: 10px;
+                color: #333333;
+            }
+            QTextEdit QScrollBar:vertical {
+                background-color: #f0f0f0;
+                width: 14px;
+                border-radius: 7px;
+            }
+            QTextEdit QScrollBar::handle:vertical {
+                background-color: #ff6666;
+                border-radius: 7px;
+                min-height: 25px;
+            }
+            QTextEdit QScrollBar::handle:vertical:hover {
+                background-color: #ff4444;
+            }
+            QTextEdit QScrollBar::add-line:vertical,
+            QTextEdit QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
             }
         """)
-        self.alert_text.append("系统启动，等待开始检测...")
+        # 设置只读模式，防止用户编辑
+        self.alert_text.setReadOnly(True)
+        # 确保滚动条始终可见
+        self.alert_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.alert_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # 添加初始化消息
+        init_time = time.strftime("%m-%d %H:%M:%S")
+        self.alert_text.append(f"[{init_time}] ℹ️ 系统启动，等待开始检测...")
         alert_layout.addWidget(self.alert_text)
 
-        right_layout.addWidget(alert_group)
+        right_layout.addWidget(alert_group, 1)  # 警报历史组占用剩余空间
 
         # 设置滚动区域
         scroll_area.setWidget(right_widget)
@@ -766,12 +1422,14 @@ class FatigueDetectionGUI(QMainWindow):
         self.recent_yawns = [t for t in self.recent_yawns if current_time - t <= self.fatigue_window]
         self.recent_blinks = [t for t in self.recent_blinks if current_time - t <= self.fatigue_window]
 
-        yawn_count_1min = len(self.recent_yawns)
+        yawn_count_30s = len(self.recent_yawns)  # 更新变量名以反映30秒窗口
         long_eye_closed = self.eye_closed_frames >= self.long_eye_closed_threshold
 
-        if yawn_count_1min >= 3 or long_eye_closed:
+        if yawn_count_30s >= 3 or long_eye_closed:
             return "重度疲劳"
-        elif yawn_count_1min >= 2:
+        elif yawn_count_30s >= 2:
+            return "中度疲劳"
+        elif yawn_count_30s >= 1:
             return "轻度疲劳"
         else:
             return "正常"
@@ -889,6 +1547,9 @@ class FatigueDetectionGUI(QMainWindow):
         self.last_detection_time = 0
         self.no_detection_frames = 0
 
+        # 重置疲劳状态
+        self.last_fatigue_status = "正常"
+
         # 更新按钮状态
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
@@ -929,11 +1590,48 @@ class FatigueDetectionGUI(QMainWindow):
     def _update_video_display(self, frame, face_detected, yawn_prob, prediction):
         """更新视频显示"""
         try:
+            # 保存最后一帧用于窗口大小变化时重新显示
+            self._last_frame = frame.copy()
+
             # 应用夜间模式效果
             display_frame = self._apply_night_mode_effect(frame)
 
+            # 获取video_label的当前大小
+            label_size = self.video_label.size()
+            label_width = label_size.width() - 10  # 减去一些边距
+            label_height = label_size.height() - 10
+
+            # 原始视频尺寸
+            original_height, original_width = display_frame.shape[:2]
+            original_aspect_ratio = original_width / original_height
+
+            # 计算保持纵横比的最佳显示尺寸，尽量填满可用空间
+            if label_width / label_height > original_aspect_ratio:
+                # label更宽，以高度为准
+                display_height = label_height
+                display_width = int(display_height * original_aspect_ratio)
+            else:
+                # label更高，以宽度为准
+                display_width = label_width
+                display_height = int(display_width / original_aspect_ratio)
+
+            # 确保最小尺寸，但允许更大的显示
+            display_width = max(display_width, 480)
+            display_height = max(display_height, 360)
+
+            # 如果计算出的尺寸太大，按比例缩小
+            if display_width > label_width:
+                scale_factor = label_width / display_width
+                display_width = int(display_width * scale_factor)
+                display_height = int(display_height * scale_factor)
+
+            if display_height > label_height:
+                scale_factor = label_height / display_height
+                display_width = int(display_width * scale_factor)
+                display_height = int(display_height * scale_factor)
+
             # 调整图像大小
-            display_frame = cv2.resize(display_frame, (640, 480))
+            display_frame = cv2.resize(display_frame, (display_width, display_height))
 
             # 转换为QImage
             height, width, channel = display_frame.shape
@@ -950,8 +1648,29 @@ class FatigueDetectionGUI(QMainWindow):
     def _add_alert(self, message):
         """添加警报记录"""
         current_time = time.strftime("%H:%M:%S")
-        alert_message = f"{current_time} - {message}"
+        current_date = time.strftime("%m-%d")
+
+        # 根据消息类型设置不同的格式
+        if "疲劳" in message or "打哈欠" in message:
+            alert_message = f"[{current_date} {current_time}] ⚠️ {message}"
+        elif "启动" in message or "停止" in message:
+            alert_message = f"[{current_date} {current_time}] ℹ️ {message}"
+        else:
+            alert_message = f"[{current_date} {current_time}] • {message}"
+
         self.alert_text.append(alert_message)
+
+        # 自动滚动到最新记录
+        scrollbar = self.alert_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+        # 限制历史记录数量，避免内存占用过多
+        document = self.alert_text.document()
+        if document.blockCount() > 100:  # 保留最近100条记录
+            cursor = self.alert_text.textCursor()
+            cursor.movePosition(cursor.Start)
+            cursor.movePosition(cursor.Down, cursor.KeepAnchor, 10)  # 删除前10行
+            cursor.removeSelectedText()
 
     def _update_gui(self):
         """更新GUI显示（保持原有逻辑）"""
@@ -1008,12 +1727,38 @@ class FatigueDetectionGUI(QMainWindow):
                 # 更新疲劳状态
                 fatigue_level = self._evaluate_fatigue_status()
                 self.fatigue_status_widget.value_label.setText(fatigue_level)
+
+                # 检查疲劳状态变化并播放警告音频
+                if fatigue_level != self.last_fatigue_status:
+                    if fatigue_level == "轻度疲劳" and self.last_fatigue_status == "正常":
+                        self._play_warning_sound()
+                        self._add_alert("检测到轻度疲劳，请注意休息！")
+                        self._save_fatigue_record("轻度疲劳", "检测到轻度疲劳")
+                        print("⚠️ 轻度疲劳警告")
+                    elif fatigue_level == "中度疲劳" and self.last_fatigue_status in ["正常", "轻度疲劳"]:
+                        self._play_warning_sound()
+                        self._add_alert("检测到中度疲劳，建议立即休息！")
+                        self._save_fatigue_record("中度疲劳", "检测到中度疲劳")
+                        print("⚠️⚠️ 中度疲劳警告")
+                    elif fatigue_level == "重度疲劳" and self.last_fatigue_status in ["正常", "轻度疲劳", "中度疲劳"]:
+                        self._play_warning_sound()
+                        self._add_alert("检测到重度疲劳，请立即停车休息！")
+                        self._save_fatigue_record("重度疲劳", "检测到重度疲劳")
+                        print("🚨 重度疲劳警告")
+                    elif fatigue_level == "正常":
+                        self._add_alert("疲劳状态恢复正常")
+                        print("✅ 疲劳状态恢复正常")
+
+                    self.last_fatigue_status = fatigue_level
+
                 if fatigue_level == "正常":
-                    color = "#4CAF50"
+                    color = "#4CAF50"  # 绿色
                 elif fatigue_level == "轻度疲劳":
-                    color = "#FFC107"
+                    color = "#FFC107"  # 黄色
+                elif fatigue_level == "中度疲劳":
+                    color = "#FF9800"  # 橙色
                 else:  # 重度疲劳
-                    color = "#f44336"
+                    color = "#f44336"  # 红色
                 self.fatigue_status_widget.value_label.setStyleSheet(f"color: {color}; font-weight: bold;")
 
                 # 更新连续检测显示
@@ -1098,6 +1843,58 @@ class FatigueDetectionGUI(QMainWindow):
 
         return darkened_frame
 
+    def resizeEvent(self, event):
+        """处理窗口大小变化事件"""
+        super().resizeEvent(event)
+
+        # 如果视频正在播放，触发一次显示更新以调整视频大小
+        if hasattr(self, 'video_thread') and self.video_thread and self.video_thread.running:
+            # 延迟一点时间让布局完成调整
+            QTimer.singleShot(50, self._update_video_size)
+
+    def _update_video_size(self):
+        """更新视频显示大小"""
+        if hasattr(self, '_last_frame') and self._last_frame is not None:
+            # 如果有最后一帧，重新显示以调整大小
+            self._update_video_display(self._last_frame,
+                                     getattr(self, '_last_face_detected', False),
+                                     getattr(self, '_last_yawn_prob', 0.0),
+                                     getattr(self, '_last_prediction', 0))
+
+    def _user_login(self):
+        """用户登录流程"""
+        login_dialog = UserLoginDialog()
+        if login_dialog.exec_() == QDialog.Accepted and login_dialog.authenticated:
+            self.current_user = login_dialog.current_user
+            return True
+        return False
+
+    def _save_fatigue_record(self, fatigue_level, additional_info=""):
+        """保存疲劳记录到数据库"""
+        if not self.current_user:
+            return
+
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    INSERT INTO fatigue_records
+                    (username, timestamp, fatigue_level)
+                    VALUES (%s, %s, %s)
+                ''', (
+                    self.current_user['username'],
+                    datetime.datetime.now(),
+                    fatigue_level
+                ))
+
+                conn.commit()
+
+            print(f"💾 疲劳记录已保存: {self.current_user['username']} - {fatigue_level}")
+
+        except Exception as e:
+            print(f"❌ 保存疲劳记录失败: {e}")
+
     def run(self):
         """运行GUI"""
         print("🎯 PyQt疲劳检测系统启动")
@@ -1105,6 +1902,7 @@ class FatigueDetectionGUI(QMainWindow):
         print(f"📜 右侧面板支持滚动")
         print(f"🎮 默认模式: 平衡模式")
         print(f"📷 检测到摄像头: 索引 {self.camera_index}")
+        print(f"👤 当前用户: {self.current_user['username']}")
         self.show()
 
 def main():
