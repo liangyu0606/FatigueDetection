@@ -1,10 +1,6 @@
 data/
 dataset/
 models/
-
-shape_predictor_68_face_landmarks.dat
-Python_ConvolutionalNeuralNetwork_FaceRecognition_fatiguedriving-master/model
-Python_ConvolutionalNeuralNetwork_FaceRecognition_fatiguedriving-master/venv
-output
+.idae/
 
 *.log
