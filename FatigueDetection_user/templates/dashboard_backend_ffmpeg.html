@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>疲劳检测系统 - {{ user.username }} (FFmpeg优化版)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            background-color: #f0f0f0;
+            overflow-x: hidden;
+        }
+
+        /* 用户信息栏 */
+        .user-info-bar {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 40px;
+        }
+
+        .user-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .user-info span {
+            font-size: 12px;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .logout-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+
+        /* 主容器 */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 40px);
+        }
+
+        /* 左侧面板 */
+        .left-panel {
+            flex: 2;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 右侧面板 */
+        .right-panel {
+            flex: 1;
+            padding: 20px;
+            background-color: #fff;
+            border-left: 1px solid #ddd;
+            overflow-y: auto;
+        }
+
+        /* 组件样式 */
+        .group-box {
+            background: white;
+            border: 2px solid #cccccc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .group-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 视频预览区域 */
+        .video-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #video-display {
+            width: 100%;
+            height: 500px;  /* 增加高度 */
+            background-color: #333333;
+            border: 2px solid #555555;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #video-display video,
+        #video-display img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;  /* 改为contain以显示完整图像 */
+            border-radius: 5px;
+        }
+
+        #video-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 控制按钮 */
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-start {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background-color: #45a049;
+        }
+
+        .btn-stop {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .btn-stop:hover {
+            background-color: #da190b;
+        }
+
+        .btn-night {
+            background-color: #9C27B0;
+            color: white;
+        }
+
+        .btn-night:hover {
+            background-color: #7B1FA2;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* 当前设置 */
+        .current-settings {
+            font-size: 12px;
+        }
+
+        .current-mode {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .current-params {
+            color: #666;
+        }
+
+        /* 快速预设按钮 */
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .preset-btn {
+            flex: 1;
+            padding: 10px 8px;
+            font-size: 12px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.2;
+        }
+
+        .preset-btn small {
+            font-size: 9px;
+            font-weight: normal;
+            margin-top: 2px;
+            opacity: 0.9;
+        }
+
+        .preset-sensitive {
+            background-color: #FF5722;
+            color: white;
+        }
+
+        .preset-balanced {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .preset-conservative {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        /* 状态卡片 */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-card {
+            background: white;
+            border: 2px solid #cccccc;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .status-card-title {
+            font-size: 10px;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .status-card-value {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* 进度条 */
+        .progress-container {
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #cccccc;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* 警报历史 */
+        .alert-history {
+            flex: 1;
+            min-height: 300px;
+        }
+
+        .alert-text {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            height: 250px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #495057;
+        }
+
+        /* FFmpeg特有样式 */
+        .ffmpeg-badge {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .compression-stats {
+            background: #e8f5e8;
+            border: 1px solid #4CAF50;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .compression-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+
+        .compression-value {
+            font-weight: bold;
+            color: #2E7D32;
+        }
+
+        /* 视频显示增强 */
+        .video-info-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 15;
+        }
+
+        .detection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 255, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 15;
+        }
+
+        .detection-status.no-face {
+            background: rgba(255, 0, 0, 0.8);
+        }
+
+        /* 双视频模式样式 */
+        .video-title {
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            padding: 3px 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <!-- 用户信息栏 -->
+    <div class="user-info-bar">
+        <div class="user-info">
+            <span>当前用户: {{ user.username }}</span>
+            <span id="login-time">登录时间: --:--</span>
+        </div>
+        <button class="logout-btn" onclick="logout()">退出</button>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- 双视频预览 -->
+            <div class="group-box video-container">
+                <div class="group-title">视频预览 - 双画面模式</div>
+                <div style="display: flex; gap: 10px; height: 500px;">
+                    <!-- 原始摄像头画面 -->
+                    <div style="flex: 1; position: relative;">
+                        <div class="video-title">原始摄像头</div>
+                        <div id="camera-display" style="width: 100%; height: calc(100% - 25px); background-color: #333; border: 2px solid #555; border-radius: 8px; position: relative; overflow: hidden;">
+                            <span id="camera-status" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 14px;">等待摄像头启动...</span>
+                        </div>
+                    </div>
+
+                    <!-- AI处理后画面 -->
+                    <div style="flex: 1; position: relative;">
+                        <div class="video-title">AI检测结果</div>
+                        <div id="ai-display" style="width: 100%; height: calc(100% - 25px); background-color: #333; border: 2px solid #555; border-radius: 8px; position: relative; overflow: hidden;">
+                            <span id="ai-status" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 14px;">等待开始检测...</span>
+                            <img id="ai-frame" style="display: none; width: 100%; height: 100%; object-fit: contain;" alt="AI处理后的视频画面">
+                            <div id="detection-status" class="detection-status" style="display: none;">
+                                人脸检测中...
+                            </div>
+                            <div id="video-info" class="video-info-overlay" style="display: none;">
+                                AI检测 + FFmpeg优化
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制面板 -->
+            <div class="group-box">
+                <div class="group-title">控制面板</div>
+                <div class="control-buttons">
+                    <button id="start-btn" class="btn btn-start" onclick="startDetection()">🚀 开始检测</button>
+                    <button id="stop-btn" class="btn btn-stop" onclick="stopDetection()" disabled>⏹️ 停止检测</button>
+                    <button id="night-btn" class="btn btn-night" onclick="toggleNightMode()">🌙 夜间模式</button>
+                </div>
+            </div>
+
+            <!-- 当前设置 -->
+            <div class="group-box">
+                <div class="group-title">当前设置</div>
+                <div class="current-settings">
+                    <div id="current-mode" class="current-mode">当前模式: ⚖️ 平衡模式 </div>
+                    <div id="current-params" class="current-params">模型阈值: 0.60 | MAR阈值: 0.50 | EAR阈值: 0.18 | 连续阈值: 15帧 | 冷却: 5.0秒</div>
+                </div>
+            </div>
+
+            <!-- 快速预设 -->
+            <div class="group-box">
+                <div class="group-title">快速预设</div>
+                <div class="preset-buttons">
+                    <button class="preset-btn preset-sensitive" onclick="applyPreset('sensitive')" title="MAR阈值: 0.45, 连续检测: 10帧, 警报冷却: 3秒">
+                        🔥 敏感模式
+                        <small>MAR≥0.45 | 10帧</small>
+                    </button>
+                    <button class="preset-btn preset-balanced" onclick="applyPreset('balanced')" title="MAR阈值: 0.5, 连续检测: 15帧, 警报冷却: 5秒">
+                        ⚖️ 平衡模式
+                        <small>MAR≥0.5 | 15帧</small>
+                    </button>
+                    <button class="preset-btn preset-conservative" onclick="applyPreset('conservative')" title="MAR阈值: 0.55, 连续检测: 20帧, 警报冷却: 8秒">
+                        🛡️ 保守模式
+                        <small>MAR≥0.55 | 20帧</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+            <!-- FFmpeg压缩统计 -->
+            <div class="group-box">
+                <div class="group-title">FFmpeg压缩统计</div>
+                <div class="compression-stats">
+                    <div class="compression-item">
+                        <span>压缩比:</span>
+                        <span id="compression-ratio" class="compression-value">0%</span>
+                    </div>
+                    <div class="compression-item">
+                        <span>处理帧数:</span>
+                        <span id="processed-frames" class="compression-value">0</span>
+                    </div>
+                    <div class="compression-item">
+                        <span>平均原始大小:</span>
+                        <span id="original-size" class="compression-value">0 KB</span>
+                    </div>
+                    <div class="compression-item">
+                        <span>平均压缩大小:</span>
+                        <span id="compressed-size" class="compression-value">0 KB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 实时监测 -->
+            <div class="group-box">
+                <div class="group-title">实时监测</div>
+                <div class="status-grid">
+                    <div class="status-card">
+                        <div class="status-card-title">人脸检测</div>
+                        <div id="face-status" class="status-card-value">等待中</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">打哈欠概率</div>
+                        <div id="yawn-prob" class="status-card-value">0.000</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">嘴部状态</div>
+                        <div id="mouth-status" class="status-card-value">正常</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">眼部状态</div>
+                        <div id="eye-status" class="status-card-value">正常</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">疲劳状态</div>
+                        <div id="fatigue-status" class="status-card-value">正常</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">连续检测</div>
+                        <div id="consecutive-status" class="status-card-value">0/20</div>
+                    </div>
+                </div>
+
+                <div class="progress-container">
+                    <label>检测进度:</label>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 会话统计 -->
+            <div class="group-box">
+                <div class="group-title">会话统计</div>
+                <div class="status-grid">
+                    <div class="status-card">
+                        <div class="status-card-title">会话时间</div>
+                        <div id="session-time" class="status-card-value">00:00</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">缓冲区</div>
+                        <div id="buffer-status" class="status-card-value">0/30</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">总检测</div>
+                        <div id="total-predictions" class="status-card-value">0</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-card-title">打哈欠</div>
+                        <div id="yawn-count" class="status-card-value">0</div>
+                    </div>
+                    <div class="status-card" style="grid-column: span 2;">
+                        <div class="status-card-title">眨眼次数</div>
+                        <div id="blink-count" class="status-card-value">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 警报历史 -->
+            <div class="group-box alert-history">
+                <div class="group-title" style="color: #d32f2f;">警报历史</div>
+                <div id="alert-text" class="alert-text"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isDetecting = false;
+        let nightMode = false;
+        let videoStream = null;
+        let video = null;
+        let canvas = null;
+        let ctx = null;
+        let frameInterval = null;
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            initWebSocket();
+            updateLoginTime();
+            addInitialMessage();
+            initCamera();
+        });
+
+        async function initCamera() {
+            try {
+                // 创建video元素用于获取摄像头画面
+                video = document.createElement('video');
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.objectFit = 'contain';
+
+                // 创建canvas用于捕获帧
+                canvas = document.createElement('canvas');
+                ctx = canvas.getContext('2d');
+
+                // 请求摄像头权限
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+
+                video.srcObject = videoStream;
+
+                // 等待视频加载完成
+                video.onloadedmetadata = function() {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+
+                    // 将原始摄像头画面显示在左侧区域
+                    const cameraDisplay = document.getElementById('camera-display');
+                    const cameraStatus = document.getElementById('camera-status');
+
+                    if (cameraDisplay && cameraStatus) {
+                        // 清空状态文字
+                        cameraStatus.style.display = 'none';
+
+                        // 添加video元素到摄像头显示区域
+                        cameraDisplay.appendChild(video);
+
+                        // 添加摄像头状态指示器
+                        const indicator = document.createElement('div');
+                        indicator.style.position = 'absolute';
+                        indicator.style.top = '10px';
+                        indicator.style.left = '10px';
+                        indicator.style.background = 'rgba(0, 255, 0, 0.8)';
+                        indicator.style.color = 'white';
+                        indicator.style.padding = '3px 8px';
+                        indicator.style.borderRadius = '4px';
+                        indicator.style.fontSize = '11px';
+                        indicator.style.fontWeight = 'bold';
+                        indicator.style.zIndex = '20';
+                        indicator.textContent = '🟢 实时';
+                        cameraDisplay.appendChild(indicator);
+                    }
+
+                    console.log('摄像头初始化成功');
+                    addAlertMessage('📹 摄像头已就绪，左侧显示实时画面');
+                    addAlertMessage('🎯 点击开始检测后，右侧将显示AI处理结果');
+                };
+
+            } catch (error) {
+                console.error('摄像头初始化失败:', error);
+                addAlertMessage('❌ 摄像头初始化失败: ' + error.message);
+
+                // 显示错误信息
+                const cameraStatus = document.getElementById('camera-status');
+                if (cameraStatus) {
+                    cameraStatus.textContent = '摄像头访问失败: ' + error.message;
+                    cameraStatus.style.color = '#ff6b6b';
+                }
+            }
+        }
+
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                addAlertMessage('✅ WebSocket连接已建立');
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'detection_result') {
+                        updateDisplay(message.data);
+                    }
+                } catch (error) {
+                    addAlertMessage('❌ 解析WebSocket消息失败: ' + error.message);
+                }
+            };
+
+            ws.onclose = function() {
+                addAlertMessage('⚠️ WebSocket连接断开，3秒后重连...');
+                setTimeout(initWebSocket, 3000);
+            };
+        }
+
+        function captureAndSendFrame() {
+            if (!video || !canvas || !ctx || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            
+            try {
+                if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+                    return;
+                }
+                
+                // 捕获原始帧（后端会进行FFmpeg压缩）
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const frameData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // 发送到后端进行FFmpeg处理
+                ws.send(JSON.stringify({
+                    type: 'video_frame',
+                    frame: frameData
+                }));
+                
+            } catch (error) {
+                addAlertMessage('❌ 捕获视频帧失败: ' + error.message);
+            }
+        }
+
+        async function startDetection() {
+            if (!videoStream) {
+                addAlertMessage('❌ 摄像头未就绪，请刷新页面重试');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/start_detection', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    isDetecting = true;
+                    document.getElementById('start-btn').disabled = true;
+                    document.getElementById('stop-btn').disabled = false;
+
+                    // 开始发送视频帧（后端FFmpeg处理）
+                    frameInterval = setInterval(captureAndSendFrame, 200); // 5fps
+
+                    addAlertMessage('✅ 检测已开始 - AI + FFmpeg优化模式');
+                } else {
+                    addAlertMessage('❌ 启动检测失败: ' + result.message);
+                }
+            } catch (error) {
+                addAlertMessage('❌ 网络错误: ' + error.message);
+            }
+        }
+
+        async function stopDetection() {
+            try {
+                const response = await fetch('/api/stop_detection', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    isDetecting = false;
+                    document.getElementById('start-btn').disabled = false;
+                    document.getElementById('stop-btn').disabled = true;
+
+                    if (frameInterval) {
+                        clearInterval(frameInterval);
+                        frameInterval = null;
+                    }
+
+                    // 清理AI显示区域
+                    const aiFrame = document.getElementById('ai-frame');
+                    const aiStatus = document.getElementById('ai-status');
+                    const detectionStatus = document.getElementById('detection-status');
+                    const videoInfo = document.getElementById('video-info');
+
+                    // 隐藏AI处理后的图像
+                    if (aiFrame) {
+                        aiFrame.style.display = 'none';
+                        aiFrame.src = ''; // 清空图像源
+                    }
+
+                    // 显示AI状态文字
+                    if (aiStatus) {
+                        aiStatus.style.display = 'block';
+                        aiStatus.textContent = '等待开始检测...';
+                    }
+
+                    // 隐藏检测状态和视频信息
+                    if (detectionStatus) {
+                        detectionStatus.style.display = 'none';
+                    }
+                    if (videoInfo) {
+                        videoInfo.style.display = 'none';
+                    }
+
+                    addAlertMessage('⏹️ 检测已停止');
+                }
+            } catch (error) {
+                addAlertMessage('❌ 网络错误: ' + error.message);
+            }
+        }
+
+        async function applyPreset(mode) {
+            try {
+                const formData = new FormData();
+                formData.append('mode', mode);
+
+                const response = await fetch('/api/apply_preset', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新当前模式显示
+                    const currentMode = document.getElementById('current-mode');
+                    const currentParams = document.getElementById('current-params');
+
+                    if (currentMode) {
+                        let modeText = '';
+                        let paramsText = '';
+
+                        if (mode === 'sensitive') {
+                            modeText = '🔥 敏感模式 (FFmpeg优化)';
+                            paramsText = '模型阈值: 0.60 | MAR阈值: 0.45 | 连续阈值: 10帧 | 冷却: 3.0秒';
+                        } else if (mode === 'balanced') {
+                            modeText = '⚖️ 平衡模式 (FFmpeg优化)';
+                            paramsText = '模型阈值: 0.60 | MAR阈值: 0.50 | 连续阈值: 15帧 | 冷却: 5.0秒';
+                        } else if (mode === 'conservative') {
+                            modeText = '🛡️ 保守模式 (FFmpeg优化)';
+                            paramsText = '模型阈值: 0.60 | MAR阈值: 0.55 | 连续阈值: 20帧 | 冷却: 8.0秒';
+                        }
+
+                        currentMode.textContent = '当前模式: ' + modeText;
+                        if (currentParams) {
+                            currentParams.textContent = paramsText;
+                        }
+                    }
+
+                    // 如果后端返回了参数信息，使用后端的数据
+                    if (result.parameters) {
+                        const params = result.parameters;
+                        const paramsText = `模型阈值: 0.60 | MAR阈值: ${params.mar_threshold}  | 连续阈值: ${params.consecutive_threshold}帧 | 冷却: ${params.alert_cooldown}秒`;
+                        if (currentParams) {
+                            currentParams.textContent = paramsText;
+                        }
+                    }
+
+                    addAlertMessage('⚙️ ' + result.message);
+                }
+            } catch (error) {
+                addAlertMessage('❌ 网络错误: ' + error.message);
+            }
+        }
+
+        function updateDisplay(data) {
+            // 更新AI处理后的画面 - 显示在右侧区域
+            if (data.frame) {
+                const aiDisplay = document.getElementById('ai-display');
+                const aiStatus = document.getElementById('ai-status');
+                let aiFrame = document.getElementById('ai-frame');
+                let detectionStatus = document.getElementById('detection-status');
+                let videoInfo = document.getElementById('video-info');
+
+                // 隐藏AI状态文字
+                if (aiStatus) {
+                    aiStatus.style.display = 'none';
+                }
+
+                // 显示AI处理后的图像
+                if (aiFrame) {
+                    aiFrame.src = 'data:image/jpeg;base64,' + data.frame;
+                    aiFrame.style.display = 'block';
+                } else {
+                    console.error('❌ AI显示元素未找到');
+                }
+
+                // 显示检测状态
+                if (detectionStatus) {
+                    detectionStatus.style.display = 'block';
+                    if (data.face_detected) {
+                        detectionStatus.textContent = '✅ 人脸已检测 (含特征点)';
+                        detectionStatus.className = 'detection-status';
+                    } else {
+                        detectionStatus.textContent = '❌ 未检测到人脸';
+                        detectionStatus.className = 'detection-status no-face';
+                    }
+                }
+
+                // 显示视频信息
+                if (videoInfo) {
+                    videoInfo.style.display = 'block';
+                    const compressionInfo = data.compression_stats ?
+                        `压缩比: ${data.compression_stats.avg_compression_ratio.toFixed(1)}%` :
+                        'FFmpeg优化';
+                    videoInfo.textContent = `AI检测 + ${compressionInfo}`;
+                }
+
+                // 添加加载完成事件
+                if (aiFrame) {
+                    aiFrame.onload = function() {
+                        console.log('✅ AI处理后的视频帧已更新，包含人脸框和特征点');
+                        if (data.face_detected) {
+                            console.log('🎯 人脸检测成功，特征点已绘制');
+                        }
+                    };
+                }
+            }
+
+            // 更新FFmpeg压缩统计
+            if (data.compression_stats) {
+                const stats = data.compression_stats;
+                const avgOriginal = stats.total_original_size / Math.max(1, stats.frames_processed) / 1024;
+                const avgCompressed = stats.total_compressed_size / Math.max(1, stats.frames_processed) / 1024;
+
+                const compressionElements = {
+                    'compression-ratio': stats.avg_compression_ratio.toFixed(1) + '%',
+                    'processed-frames': stats.frames_processed,
+                    'original-size': avgOriginal.toFixed(1) + ' KB',
+                    'compressed-size': avgCompressed.toFixed(1) + ' KB'
+                };
+
+                for (const [id, value] of Object.entries(compressionElements)) {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = value;
+                    }
+                }
+            }
+
+            // 更新实时监测
+            const elements = {
+                'face-status': data.face_detected ? '✅ 检测到' : '❌ 未检测',
+                'yawn-prob': data.yawn_prob ? data.yawn_prob.toFixed(3) : '0.000',
+                'mouth-status': data.prediction === 1 ? '🔴 张开' : '🟢 正常',
+                'eye-status': data.ear < 0.25 ? '🔴 闭合' : '🟢 睁开',
+                'fatigue-status': data.fatigue_status || '正常',
+                'consecutive-status': `${data.consecutive_yawns || 0}/20`
+            };
+
+            for (const [id, value] of Object.entries(elements)) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                } else {
+                    console.warn(`元素未找到: ${id}`);
+                }
+            }
+
+            // 更新进度条
+            const progress = data.progress || 0;
+            const progressFill = document.getElementById('progress-fill');
+            if (progressFill) {
+                progressFill.style.width = progress + '%';
+
+                // 根据进度改变颜色
+                if (progress >= 80) {
+                    progressFill.style.backgroundColor = '#f44336';
+                } else if (progress >= 50) {
+                    progressFill.style.backgroundColor = '#ff9800';
+                } else {
+                    progressFill.style.backgroundColor = '#4CAF50';
+                }
+            }
+
+            // 更新会话统计
+            const sessionElements = {
+                'session-time': data.session_time || '00:00',
+                'buffer-status': data.buffer_status || '0/30',
+                'total-predictions': data.total_predictions || 0,
+                'yawn-count': data.yawn_count || 0,
+                'blink-count': data.blink_count || 0
+            };
+
+            for (const [id, value] of Object.entries(sessionElements)) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            }
+
+            // 如果检测到打哈欠，添加警报
+            if (data.prediction === 1) {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString();
+                addAlertMessage(`[${timeStr}] 🚨 检测到打哈欠！概率: ${data.yawn_prob.toFixed(3)}`);
+            }
+        }
+
+        function toggleNightMode() {
+            nightMode = !nightMode;
+            const body = document.body;
+            const nightBtn = document.getElementById('night-btn');
+
+            if (nightMode) {
+                body.style.backgroundColor = '#1a1a1a';
+                body.style.color = '#ffffff';
+                nightBtn.textContent = '☀️ 日间模式';
+                addAlertMessage('🌙 已切换到夜间模式');
+            } else {
+                body.style.backgroundColor = '#f0f0f0';
+                body.style.color = '#000000';
+                nightBtn.textContent = '🌙 夜间模式';
+                addAlertMessage('☀️ 已切换到日间模式');
+            }
+        }
+
+        function addInitialMessage() {
+            addAlertMessage('🤖 AI疲劳检测系统已启动 - FFmpeg优化版');
+            addAlertMessage('📊 支持实时视频压缩，大幅减少网络传输');
+            addAlertMessage('🎯 保持完整AI检测精度');
+        }
+
+        function updateLoginTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false }).substring(0, 5);
+            document.getElementById('login-time').textContent = `登录时间: ${timeStr}`;
+        }
+
+        function addAlertMessage(message) {
+            const alertText = document.getElementById('alert-text');
+            const time = new Date().toLocaleTimeString();
+            alertText.innerHTML += `[${time}] ${message}<br>`;
+            alertText.scrollTop = alertText.scrollHeight;
+            console.log(message);
+        }
+
+        function logout() {
+            if (confirm('确定要退出疲劳检测系统吗？')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        // 页面关闭前清理资源
+        window.addEventListener('beforeunload', function() {
+            if (isDetecting) {
+                stopDetection();
+            }
+            if (frameInterval) {
+                clearInterval(frameInterval);
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>

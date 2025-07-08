@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>疲劳检测系统 - 管理员界面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: #2e7d32;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .logout-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .logout-btn:hover {
+            background: #da190b;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .tabs {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab-button {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-button.active {
+            color: #2e7d32;
+            border-bottom-color: #2e7d32;
+        }
+        
+        .tab-content {
+            padding: 30px;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        
+        .search-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1976D2;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+        }
+        
+        .btn-warning {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #F57C00;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .pagination button:hover {
+            background: #f8f9fa;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .fatigue-level {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .fatigue-level.mild {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .fatigue-level.moderate {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .fatigue-level.severe {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>疲劳检测系统 - 管理员界面</h1>
+        <div class="user-info">
+            <span>当前管理员: {{ admin.username }}</span>
+            <span>登录时间: {{ admin.login_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            <form method="post" action="/logout" style="display: inline;">
+                <button type="submit" class="logout-btn">退出</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('records')">疲劳记录查询</button>
+                <button class="tab-button" onclick="showTab('statistics')">统计分析</button>
+                <button class="tab-button" onclick="showTab('users')">用户管理</button>
+            </div>
+            
+            <!-- 疲劳记录查询标签页 -->
+            <div id="records" class="tab-content active">
+                <div class="search-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">用户名:</label>
+                            <input type="text" id="username" placeholder="输入用户名进行搜索，按回车键搜索" onkeypress="handleSearchKeyPress(event)">
+                        </div>
+                        <div class="form-group">
+                            <label for="fatigue_status">疲劳状态:</label>
+                            <select id="fatigue_status" onchange="searchRecords()">
+                                <option value="全部">全部</option>
+                                <option value="轻度疲劳">轻度疲劳</option>
+                                <option value="中度疲劳">中度疲劳</option>
+                                <option value="重度疲劳">重度疲劳</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="start_time">开始时间:</label>
+                            <input type="datetime-local" id="start_time" onchange="searchRecords()">
+                        </div>
+                        <div class="form-group">
+                            <label for="end_time">结束时间:</label>
+                            <input type="datetime-local" id="end_time" onchange="searchRecords()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="searchRecords()">搜索</button>
+                        <button class="btn btn-warning" onclick="clearSearch()">重置</button>
+                        <button class="btn btn-success" onclick="refreshRecords()">刷新</button>
+                        <a href="#" class="btn btn-success" onclick="exportCSV()">导出CSV</a>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>时间</th>
+                                <th>疲劳等级</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-tbody">
+                            <tr>
+                                <td colspan="3" class="loading">正在加载数据...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination" id="records-pagination">
+                    <!-- 分页控件将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 统计分析标签页 -->
+            <div id="statistics" class="tab-content">
+                <div class="stats-grid" id="stats-grid">
+                    <!-- 统计卡片将通过JavaScript动态生成 -->
+                </div>
+                
+                <div class="table-container">
+                    <h3 style="padding: 20px; margin: 0; background: #f8f9fa; border-bottom: 1px solid #ddd;">用户疲劳统计详情</h3>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>轻度疲劳</th>
+                                <th>中度疲劳</th>
+                                <th>重度疲劳</th>
+                                <th>最后记录时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-stats-tbody">
+                            <tr>
+                                <td colspan="5" class="loading">正在加载统计数据...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 用户管理标签页 -->
+            <div id="users" class="tab-content">
+                <div class="search-form">
+                    <h3>添加新用户</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="new_username">用户名:</label>
+                            <input type="text" id="new_username" placeholder="请输入用户名">
+                        </div>
+                        <div class="form-group">
+                            <label for="new_password">密码:</label>
+                            <input type="password" id="new_password" placeholder="请输入密码">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: end;">
+                            <button class="btn btn-primary" onclick="addUser()">添加用户</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr>
+                                <td colspan="2" class="loading">正在加载用户列表...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let pageSize = 20;
+        let totalRecords = 0;
+        
+        // 标签页切换
+        function showTab(tabName) {
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有按钮的active类
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示选中的标签页
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // 根据标签页加载相应数据
+            if (tabName === 'records') {
+                loadRecords();
+            } else if (tabName === 'statistics') {
+                loadStatistics();
+            } else if (tabName === 'users') {
+                loadUsers();
+            }
+        }
+        
+        // 加载疲劳记录
+        async function loadRecords(page = 1) {
+            currentPage = page;
+            const username = document.getElementById('username').value;
+            const fatigueStatus = document.getElementById('fatigue_status').value;
+            const startTime = document.getElementById('start_time').value;
+            const endTime = document.getElementById('end_time').value;
+            
+            const params = new URLSearchParams({
+                page: page,
+                page_size: pageSize,
+                username: username,
+                fatigue_status: fatigueStatus,
+                start_time: startTime,
+                end_time: endTime
+            });
+            
+            try {
+                const response = await fetch(`/api/fatigue-records?${params}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayRecords(data.records);
+                    displayPagination(data.page, data.total_pages, data.total);
+                    totalRecords = data.total;
+                } else {
+                    alert('加载记录失败: ' + data.detail);
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+        
+        // 显示记录
+        function displayRecords(records) {
+            const tbody = document.getElementById('records-tbody');
+            
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="loading">没有找到记录</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = records.map(record => `
+                <tr>
+                    <td>${record.username}</td>
+                    <td>${record.timestamp}</td>
+                    <td><span class="fatigue-level ${getFatigueClass(record.fatigue_level)}">${record.fatigue_level}</span></td>
+                </tr>
+            `).join('');
+        }
+        
+        // 获取疲劳等级样式类
+        function getFatigueClass(level) {
+            if (level === '轻度疲劳') return 'mild';
+            if (level === '中度疲劳') return 'moderate';
+            if (level === '重度疲劳') return 'severe';
+            return '';
+        }
+        
+        // 显示分页
+        function displayPagination(page, totalPages, total) {
+            const pagination = document.getElementById('records-pagination');
+            
+            let html = `
+                <button onclick="loadRecords(${page - 1})" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+                <span>第 ${page} 页，共 ${total} 条记录</span>
+                <button onclick="loadRecords(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+        
+        // 搜索记录
+        function searchRecords() {
+            loadRecords(1);
+        }
+
+        // 处理搜索框回车键事件
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchRecords();
+            }
+        }
+
+        // 清空搜索
+        function clearSearch() {
+            document.getElementById('username').value = '';
+            document.getElementById('fatigue_status').value = '全部';
+            document.getElementById('start_time').value = '';
+            document.getElementById('end_time').value = '';
+            loadRecords(1);
+        }
+        
+        // 刷新记录
+        function refreshRecords() {
+            loadRecords(currentPage);
+        }
+        
+        // 导出CSV
+        function exportCSV() {
+            const username = document.getElementById('username').value;
+            const fatigueStatus = document.getElementById('fatigue_status').value;
+            const startTime = document.getElementById('start_time').value;
+            const endTime = document.getElementById('end_time').value;
+            
+            const params = new URLSearchParams({
+                username: username,
+                fatigue_status: fatigueStatus,
+                start_time: startTime,
+                end_time: endTime
+            });
+            
+            window.open(`/export-csv?${params}`, '_blank');
+        }
+        
+        // 加载统计信息
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayStatistics(data);
+                } else {
+                    alert('加载统计信息失败: ' + data.detail);
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+        
+        // 显示统计信息
+        function displayStatistics(data) {
+            const statsGrid = document.getElementById('stats-grid');
+            
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <h3>总记录数</h3>
+                    <div class="value">${data.total_records}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>活跃用户数</h3>
+                    <div class="value">${data.total_users}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>最近7天记录</h3>
+                    <div class="value">${data.recent_records}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>轻度疲劳</h3>
+                    <div class="value">${data.fatigue_stats.mild} 次</div>
+                </div>
+                <div class="stat-card">
+                    <h3>中度疲劳</h3>
+                    <div class="value">${data.fatigue_stats.moderate} 次</div>
+                </div>
+                <div class="stat-card">
+                    <h3>重度疲劳</h3>
+                    <div class="value">${data.fatigue_stats.severe} 次</div>
+                </div>
+            `;
+            
+            // 显示用户统计详情
+            const userStatsBody = document.getElementById('user-stats-tbody');
+            
+            if (data.user_stats.length === 0) {
+                userStatsBody.innerHTML = '<tr><td colspan="5" class="loading">没有用户统计数据</td></tr>';
+                return;
+            }
+            
+            userStatsBody.innerHTML = data.user_stats.map(stats => `
+                <tr>
+                    <td>${stats.username}</td>
+                    <td>${stats.mild_count}</td>
+                    <td>${stats.moderate_count}</td>
+                    <td>${stats.severe_count}</td>
+                    <td>${stats.last_record}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // 加载用户列表
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayUsers(data.users);
+                } else {
+                    alert('加载用户列表失败: ' + data.detail);
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+        
+        // 显示用户列表
+        function displayUsers(users) {
+            const tbody = document.getElementById('users-tbody');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="loading">没有用户</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>${user.created_at}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // 添加用户
+        async function addUser() {
+            const username = document.getElementById('new_username').value.trim();
+            const password = document.getElementById('new_password').value.trim();
+            
+            if (!username || !password) {
+                alert('请填写用户名和密码');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('用户添加成功');
+                    document.getElementById('new_username').value = '';
+                    document.getElementById('new_password').value = '';
+                    loadUsers();
+                } else {
+                    alert('添加用户失败: ' + data.detail);
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecords();
+        });
+    </script>
+</body>
+</html>
