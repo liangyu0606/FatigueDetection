@@ -1,0 +1,6 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+jinja2>=3.1.0
+python-multipart>=0.0.5
+pymysql>=1.0.0
+pytz>=2023.3
