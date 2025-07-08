@@ -50,13 +50,13 @@ class UserRegisterDialog(QDialog):
     def _create_ui(self):
         """创建注册界面"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(40)
-        layout.setContentsMargins(60, 60, 60, 60)
+        layout.setSpacing(30)
+        layout.setContentsMargins(60, 40, 60, 60)
 
         # 标题
         title_label = QLabel("疲劳检测系统用户注册")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 48px; font-weight: bold; margin: 30px; color: #2196F3;")
+        title_label.setStyleSheet("font-size: 42px; font-weight: bold; padding: 20px 0px; color: #2196F3;")
         layout.addWidget(title_label)
 
         # 添加弹性空间
@@ -303,13 +303,13 @@ class UserLoginDialog(QDialog):
     def _create_ui(self):
         """创建登录界面"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(40)
-        layout.setContentsMargins(60, 60, 60, 60)
+        layout.setSpacing(30)
+        layout.setContentsMargins(60, 40, 60, 60)
 
         # 标题
         title_label = QLabel("疲劳检测系统用户登录")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 48px; font-weight: bold; margin: 30px; color: #2e7d32;")
+        title_label.setStyleSheet("font-size: 42px; font-weight: bold; padding: 20px 0px; color: #2e7d32;")
         layout.addWidget(title_label)
 
         # 添加弹性空间
@@ -1469,7 +1469,7 @@ class FatigueDetectionGUI(QMainWindow):
             'sensitive': {
                 'model_threshold': 0.5,
                 'mar_threshold': 0.45,
-                'consecutive_threshold': 10,  # 修改为10
+                'consecutive_threshold': 10,
                 'cooldown': 3.0,
                 'name': '🔥 敏感模式',
                 'color': '#FF5722'
@@ -1477,7 +1477,7 @@ class FatigueDetectionGUI(QMainWindow):
             'balanced': {
                 'model_threshold': 0.6,
                 'mar_threshold': 0.5,
-                'consecutive_threshold': 20,  # 修改为20
+                'consecutive_threshold': 15,
                 'cooldown': 5.0,
                 'name': '⚖️ 平衡模式',
                 'color': '#4CAF50'
@@ -1485,7 +1485,7 @@ class FatigueDetectionGUI(QMainWindow):
             'conservative': {
                 'model_threshold': 0.7,
                 'mar_threshold': 0.6,
-                'consecutive_threshold': 30,  # 修改为30
+                'consecutive_threshold': 20,
                 'cooldown': 7.0,
                 'name': '🛡️ 保守模式',
                 'color': '#2196F3'
