@@ -1,6 +1,10 @@
 data/
 dataset/
 models/
+
+
 .idae/
+FatigueDetection_admin/.idea/
+FatigueDetection_user/.idea/
 
 *.log
